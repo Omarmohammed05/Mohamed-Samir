@@ -5,10 +5,15 @@ import { listEntries } from '@/lib/sheets';
 import { getCached, setCached } from '@/lib/cache';
 import { todayCairo } from '@/lib/date';
 import { MOCK_USERS } from '@/config/mock-users';
+import type { Entry } from '@/lib/mock-store';
 import { Header } from '@/components/header';
 import { AdminTable } from '@/components/admin-table';
+import { AdminCharts } from '@/components/admin-charts';
+import { MissingEntriesReport } from '@/components/missing-entries-report';
+import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { listUsers } from '@/lib/users';
 import { UserManager } from '@/components/user-manager';
+import Link from 'next/link';
 
 const ADMIN_CACHE_KEY = 'admin-entries';
 
@@ -26,7 +31,7 @@ export default async function AdminPage({
   if (session.role !== 'admin') redirect(`/${locale}/entries`);
 
   // Short-lived cache (~10s)
-  let cached = getCached<{ entries: typeof import('@/lib/mock-store').Entry[]; warnings: string[] }>(ADMIN_CACHE_KEY);
+  let cached = getCached<{ entries: Entry[]; warnings: string[] }>(ADMIN_CACHE_KEY);
   let sheetsError: string | null = null;
   if (!cached) {
     try {
@@ -88,6 +93,32 @@ export default async function AdminPage({
           session={session}
           notSubmitted={notSubmitted}
         />
+
+        {/* Charts */}
+        <AdminCharts
+          entries={entries}
+          knownUsers={users.map((u) => ({ email: u.email, name: u.name }))}
+        />
+
+        {/* Missing entries report */}
+        <MissingEntriesReport
+          entries={entries}
+          knownUsers={users.map((u) => ({ email: u.email, name: u.name }))}
+        />
+
+        {/* Audit log */}
+        <AuditLogViewer />
+
+        {/* Summary / PDF */}
+        <div className="flex justify-end">
+          <Link
+            href={`/${locale}/admin/summary`}
+            className="text-sm text-primary hover:underline"
+          >
+            {t('admin.viewSummary')} →
+          </Link>
+        </div>
+
         <UserManager users={users} sheetsMode={sheetsMode} />
       </main>
     </div>

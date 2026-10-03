@@ -54,6 +54,11 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  html {
+    font-size: 100%;
+    transition: font-size 0.2s ease;
+  }
+
   html[dir='rtl'] body {
     font-family: var(--font-arabic), var(--font-inter), sans-serif;
   }
@@ -71,5 +76,23 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles for PDF export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  table {
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ccc !important;
+    color: black !important;
   }
 }

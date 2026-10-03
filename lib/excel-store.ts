@@ -168,17 +168,46 @@ export async function deleteEntryExcel(user: string, date: string): Promise<bool
 
     const userLower = user.toLowerCase();
     let deleted = false;
+    const captured: Entry[] = [];
 
     ws.eachRow((row, rowNum) => {
       if (rowNum === 1 || deleted) return;
       const rowDate = normalizeDate(cellValue(row.getCell(1)));
       const rowUser = cellValue(row.getCell(2)).toLowerCase().trim();
       if (rowDate === date && rowUser === userLower) {
+        // Capture the entry for soft delete
+        captured.push({
+          date: rowDate, user: rowUser,
+          a: cellValue(row.getCell(3)), b: cellValue(row.getCell(4)),
+          c: cellValue(row.getCell(5)), d: cellValue(row.getCell(6)),
+          updatedAt: cellValue(row.getCell(7)),
+        });
         // Clear the row values
         for (let c = 1; c <= 7; c++) row.getCell(c).value = null;
         deleted = true;
       }
     });
+
+    // Soft delete — copy to Deleted sheet
+    const deletedEntry = captured[0];
+    if (deleted && deletedEntry) {
+      const deletedSheetName = 'Deleted';
+      let dws = wb.getWorksheet(deletedSheetName);
+      if (!dws) {
+        dws = wb.addWorksheet(deletedSheetName);
+      }
+      if (dws) {
+        const headerRow = dws.getRow(1);
+        if (!headerRow.getCell(1).value) {
+          dws.addRow(['Date', 'User', 'A', 'B', 'C', 'D', 'UpdatedAt', 'DeletedAt', 'DeletedBy']);
+        }
+        dws.addRow([
+          deletedEntry.date, deletedEntry.user, deletedEntry.a, deletedEntry.b,
+          deletedEntry.c, deletedEntry.d, deletedEntry.updatedAt,
+          new Date().toISOString(), 'system',
+        ]);
+      }
+    }
 
     if (deleted) await wb.xlsx.writeFile(EXCEL_PATH);
     return deleted;

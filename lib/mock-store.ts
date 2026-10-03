@@ -18,6 +18,9 @@ const twoDaysAgo = new Date(today + 'T00:00:00');
 twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 const y2 = twoDaysAgo.toISOString().slice(0, 10);
 
+// Soft-delete store — deleted entries go here instead of vanishing
+const deletedStore: Entry[] = [];
+
 // Seed with sample data
 const store: Entry[] = [
   { date: today, user: 'sara@team.com', a: 'Reviewed Q4 report draft', b: 'Completed sections 1-3', c: 'Waiting on finance data', d: 'Need to sync with team Monday', updatedAt: new Date().toISOString() },
@@ -58,7 +61,23 @@ export function upsertEntry(user: string, date: string, data: { a: string; b: st
 export function deleteEntry(user: string, date: string): boolean {
   const idx = store.findIndex((e) => e.user === user.toLowerCase() && e.date === date);
   if (idx >= 0) {
+    // Soft delete — move to deletedStore
+    deletedStore.push(store[idx]);
     store.splice(idx, 1);
+    return true;
+  }
+  return false;
+}
+
+export function listDeleted(): Entry[] {
+  return [...deletedStore].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export function restoreEntry(user: string, date: string): boolean {
+  const idx = deletedStore.findIndex((e) => e.user === user.toLowerCase() && e.date === date);
+  if (idx >= 0) {
+    store.push(deletedStore[idx]);
+    deletedStore.splice(idx, 1);
     return true;
   }
   return false;

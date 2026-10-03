@@ -26,6 +26,15 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            var fs = localStorage.getItem('de-font-size');
+            var sizes = { normal: '100%', large: '115%', xl: '130%' };
+            if (fs && sizes[fs]) document.documentElement.style.fontSize = sizes[fs];
+          } catch(e) {}
+        `}} />
+      </head>
       <body className={`${inter.variable} ${cairo.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <NextIntlClientProvider messages={messages}>

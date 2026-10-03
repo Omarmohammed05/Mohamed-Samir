@@ -2,12 +2,13 @@ import { google } from 'googleapis';
 import { normalizeDate } from './date';
 import {
   listAll, listForUser, getEntry, upsertEntry, deleteEntry,
-  type Entry,
+  listDeleted, restoreEntry, type Entry,
 } from './mock-store';
 import {
   listAllExcel, listForUserExcel, getEntryExcel, upsertEntryExcel, deleteEntryExcel,
 } from './excel-store';
 import { invalidateAll } from './cache';
+import { addAuditRecord, appendAuditToSheet, type AuditAction } from './audit';
 
 const HEADER = ['Date', 'User', 'A', 'B', 'C', 'D', 'UpdatedAt'];
 
@@ -132,19 +133,40 @@ export async function getEntryRow(user: string, date: string): Promise<Entry | n
   return entries.find((e) => e.user === user.toLowerCase() && e.date === date) || null;
 }
 
+async function logAudit(
+  actor: string,
+  action: AuditAction,
+  targetUser: string,
+  targetDate: string,
+  details?: string,
+): Promise<void> {
+  const record = { actor, action, targetUser, targetDate, details };
+  addAuditRecord(record);
+  await appendAuditToSheet({ ...record, timestamp: new Date().toISOString() });
+}
+
 export async function upsertEntryRow(
   user: string,
   date: string,
   data: { a: string; b: string; c: string; d: string },
+  actor?: string,
 ): Promise<Entry> {
   const updatedAt = new Date().toISOString();
   invalidateAll();
+  const actorEmail = actor || user;
+  const userLower = user.toLowerCase();
 
   if (isMock()) {
-    return upsertEntry(user, date, data);
+    const existed = getEntry(user, date);
+    const result = upsertEntry(user, date, data);
+    await logAudit(actorEmail, existed ? 'edit' : 'create', userLower, date);
+    return result;
   }
   if (isExcel()) {
-    return upsertEntryExcel(user, date, data);
+    const existed = await getEntryExcel(user, date);
+    const result = upsertEntryExcel(user, date, data);
+    await logAudit(actorEmail, existed ? 'edit' : 'create', userLower, date);
+    return result;
   }
 
   const sheets = getSheetsClient();
@@ -155,12 +177,14 @@ export async function upsertEntryRow(
     sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Entries!A:G' }),
   );
   const rows = res.data.values || [];
+  let isEdit = false;
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const rowDate = normalizeDate(row?.[0]);
     const rowUser = (row?.[1] || '').toString().toLowerCase().trim();
-    if (rowDate === date && rowUser === user.toLowerCase()) {
+    if (rowDate === date && rowUser === userLower) {
+      isEdit = true;
       // Update in place
       await withRetry(() =>
         sheets.spreadsheets.values.update({
@@ -170,32 +194,42 @@ export async function upsertEntryRow(
           requestBody: { values: [[data.a, data.b, data.c, data.d, updatedAt]] },
         }),
       );
-      return { date, user: user.toLowerCase(), ...data, updatedAt };
+      break;
     }
   }
 
-  // Append
-  await withRetry(() =>
-    sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId,
-      range: 'Entries!A:G',
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [[date, user.toLowerCase(), data.a, data.b, data.c, data.d, updatedAt]],
-      },
-    }),
-  );
-  return { date, user: user.toLowerCase(), ...data, updatedAt };
+  if (!isEdit) {
+    // Append
+    await withRetry(() =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId: sheetId,
+        range: 'Entries!A:G',
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[date, userLower, data.a, data.b, data.c, data.d, updatedAt]],
+        },
+      }),
+    );
+  }
+
+  await logAudit(actorEmail, isEdit ? 'edit' : 'create', userLower, date);
+  return { date, user: userLower, ...data, updatedAt };
 }
 
-export async function deleteEntryRow(user: string, date: string): Promise<boolean> {
+export async function deleteEntryRow(user: string, date: string, actor?: string): Promise<boolean> {
   invalidateAll();
+  const actorEmail = actor || user;
+  const userLower = user.toLowerCase();
 
   if (isMock()) {
-    return deleteEntry(user, date);
+    const result = deleteEntry(user, date);
+    if (result) await logAudit(actorEmail, 'delete', userLower, date);
+    return result;
   }
   if (isExcel()) {
-    return deleteEntryExcel(user, date);
+    const result = await deleteEntryExcel(user, date);
+    if (result) await logAudit(actorEmail, 'delete', userLower, date);
+    return result;
   }
 
   const sheets = getSheetsClient();
@@ -210,13 +244,134 @@ export async function deleteEntryRow(user: string, date: string): Promise<boolea
     const row = rows[i];
     const rowDate = normalizeDate(row?.[0]);
     const rowUser = (row?.[1] || '').toString().toLowerCase().trim();
-    if (rowDate === date && rowUser === user.toLowerCase()) {
+    if (rowDate === date && rowUser === userLower) {
+      // Soft delete — copy to Deleted tab, then clear from Entries
+      const deletedRow = [
+        row[0] || date, row[1] || userLower, row[2] || '', row[3] || '',
+        row[4] || '', row[5] || '', row[6] || '',
+        new Date().toISOString(), actorEmail,
+      ];
+      await ensureDeletedSheet(sheets, sheetId);
+      await withRetry(() =>
+        sheets.spreadsheets.values.append({
+          spreadsheetId: sheetId,
+          range: 'Deleted!A:I',
+          valueInputOption: 'RAW',
+          requestBody: { values: [deletedRow] },
+        }),
+      );
       await withRetry(() =>
         sheets.spreadsheets.values.clear({
           spreadsheetId: sheetId,
           range: `Entries!A${i + 1}:G${i + 1}`,
         }),
       );
+      await logAudit(actorEmail, 'delete', userLower, date);
+      return true;
+    }
+  }
+  return false;
+}
+
+const DELETED_HEADER = ['Date', 'User', 'A', 'B', 'C', 'D', 'UpdatedAt', 'DeletedAt', 'DeletedBy'];
+
+async function ensureDeletedSheet(sheets: ReturnType<typeof google.sheets>, sheetId: string): Promise<void> {
+  try {
+    await withRetry(() =>
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Deleted!A1:A1' }),
+    );
+  } catch {
+    await withRetry(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: 'Deleted' } } }] },
+      }),
+    );
+    await withRetry(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: 'Deleted!A1:I1',
+        valueInputOption: 'RAW',
+        requestBody: { values: [DELETED_HEADER] },
+      }),
+    );
+  }
+}
+
+export async function listDeletedEntries(): Promise<Entry[]> {
+  if (isMock()) return listDeleted();
+  if (isExcel()) return [];
+
+  const sheets = getSheetsClient();
+  const sheetId = process.env.GOOGLE_SHEET_ID!;
+  await ensureDeletedSheet(sheets, sheetId);
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Deleted!A:G' }),
+  );
+  const rows = res.data.values || [];
+  const entries: Entry[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0 || row.every((c) => !c)) continue;
+    const date = normalizeDate(row[0]);
+    const user = (row[1] || '').toString().toLowerCase().trim();
+    if (!date || !user) continue;
+    entries.push({
+      date, user,
+      a: (row[2] || '').toString(), b: (row[3] || '').toString(),
+      c: (row[4] || '').toString(), d: (row[5] || '').toString(),
+      updatedAt: (row[6] || '').toString(),
+    });
+  }
+  return entries;
+}
+
+export async function restoreEntryRow(user: string, date: string, actor: string): Promise<boolean> {
+  invalidateAll();
+  const userLower = user.toLowerCase();
+
+  if (isMock()) {
+    const result = restoreEntry(user, date);
+    if (result) await logAudit(actor, 'restore', userLower, date);
+    return result;
+  }
+
+  // For excel mode, no Deleted sheet — return false
+  if (isExcel()) return false;
+
+  const sheets = getSheetsClient();
+  const sheetId = process.env.GOOGLE_SHEET_ID!;
+  await ensureDeletedSheet(sheets, sheetId);
+
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Deleted!A:I' }),
+  );
+  const rows = res.data.values || [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const rowDate = normalizeDate(row?.[0]);
+    const rowUser = (row?.[1] || '').toString().toLowerCase().trim();
+    if (rowDate === date && rowUser === userLower) {
+      // Append back to Entries
+      await withRetry(() =>
+        sheets.spreadsheets.values.append({
+          spreadsheetId: sheetId,
+          range: 'Entries!A:G',
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [[row[0], rowUser, row[2] || '', row[3] || '', row[4] || '', row[5] || '', row[6] || '']],
+          },
+        }),
+      );
+      // Clear from Deleted
+      await withRetry(() =>
+        sheets.spreadsheets.values.clear({
+          spreadsheetId: sheetId,
+          range: `Deleted!A${i + 1}:I${i + 1}`,
+        }),
+      );
+      await logAudit(actor, 'restore', userLower, date);
       return true;
     }
   }

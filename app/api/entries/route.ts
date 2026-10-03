@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getUserEntries, upsertEntryRow } from '@/lib/sheets';
 import { entryInputSchema } from '@/lib/validators';
-import { assertUser, canWriteEntry } from '@/lib/permissions';
+import { assertUser, canWriteEntry, isAdmin } from '@/lib/permissions';
+import { canEditDate } from '@/lib/settings';
 
 export async function GET() {
   const session = await getSession();
@@ -42,8 +43,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Late-entry rule: regular users can only edit within the last 7 days
+  if (!canEditDate(date, isAdmin(session))) {
+    return NextResponse.json(
+      { error: 'This entry is outside the editable window. Only entries from the last 7 days can be edited.' },
+      { status: 403 },
+    );
+  }
+
   try {
-    const entry = await upsertEntryRow(targetUser, date, { a, b, c, d });
+    const entry = await upsertEntryRow(targetUser, date, { a, b, c, d }, session.email);
     return NextResponse.json({ entry }, { status: 201 });
   } catch (err) {
     console.error('[entries POST] Error:', err instanceof Error ? err.message : 'unknown');

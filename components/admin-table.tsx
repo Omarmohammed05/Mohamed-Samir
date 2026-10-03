@@ -56,6 +56,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Entry | null>(null);
@@ -204,6 +205,14 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
             <Plus className="h-4 w-4" />
             {ta('addEntry')}
           </Button>
+          <Button
+            variant={editMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setEditMode(!editMode)}
+          >
+            <Pencil className="h-4 w-4" />
+            {editMode ? ta('editingOn') : ta('editMode')}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             {tc('refresh')}
@@ -279,7 +288,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                     {ta('updatedAt')}{sortIcon('updatedAt')}
                   </button>
                 </th>
-                <th className="w-20 border border-border px-2 py-2 text-center font-medium">{tc('edit')}</th>
+                {editMode && <th className="w-20 border border-border px-2 py-2 text-center font-medium">{tc('edit')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -299,16 +308,18 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                     <td className="border border-border px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
                       {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : '—'}
                     </td>
-                    <td className="border border-border px-2 py-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(entry)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
+                    {editMode && (
+                      <td className="border border-border px-2 py-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(entry)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -336,16 +347,18 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                 ))}
               </dl>
               <p className="text-xs text-muted-foreground mt-3">{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : ''}</p>
-              <div className="flex gap-2 mt-3">
-                <Button variant="outline" size="sm" onClick={() => openEdit(entry)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  {tc('edit')}
-                </Button>
-                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {tc('delete')}
-                </Button>
-              </div>
+              {editMode && (
+                <div className="flex gap-2 mt-3">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(entry)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    {tc('edit')}
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {tc('delete')}
+                  </Button>
+                </div>
+              )}
             </Card>
           );
         })}

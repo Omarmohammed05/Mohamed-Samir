@@ -95,3 +95,103 @@ export function formatDisplay(date: string, locale: string): string {
     timeZone: CAIRO_TZ,
   });
 }
+
+/** Arabic month names (Gregorian) for explicit formatting. */
+const ARABIC_MONTHS = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+];
+
+const ARABIC_DAYS = [
+  'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت',
+];
+
+const ENGLISH_DAYS = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+];
+
+/** Convert Western digits (0-9) to Arabic-Indic digits (٠-٩). */
+export function toArabicDigits(s: string): string {
+  const map = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  return s.replace(/[0-9]/g, (d) => map[parseInt(d, 10)]);
+}
+
+/** Format a date with full day name and month name in the given locale. */
+export function formatDisplayLong(date: string, locale: string): string {
+  const d = new Date(date + 'T00:00:00Z');
+  if (locale === 'ar') {
+    const dayName = ARABIC_DAYS[d.getUTCDay()];
+    const day = toArabicDigits(String(d.getUTCDate()));
+    const month = ARABIC_MONTHS[d.getUTCMonth()];
+    const year = toArabicDigits(String(d.getUTCFullYear()));
+    return `${dayName} ${day} ${month} ${year}`;
+  }
+  const dayName = ENGLISH_DAYS[d.getUTCDay()];
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: CAIRO_TZ,
+  });
+}
+
+/** Get the day-of-week name for a date in the given locale. */
+export function formatDayName(date: string, locale: string): string {
+  const d = new Date(date + 'T00:00:00Z');
+  if (locale === 'ar') return ARABIC_DAYS[d.getUTCDay()];
+  return ENGLISH_DAYS[d.getUTCDay()];
+}
+
+/** Format a timestamp for display in the given locale. */
+export function formatTimestamp(iso: string, locale: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (locale === 'ar') {
+    return toArabicDigits(
+      d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: CAIRO_TZ }),
+    );
+  }
+  return d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: CAIRO_TZ });
+}
+
+/** Get the Monday-based start of the week (YYYY-MM-DD) for a given date. */
+export function startOfWeek(date: string): string {
+  const d = new Date(date + 'T00:00:00Z');
+  const day = d.getUTCDay(); // 0 = Sunday
+  const diff = day === 0 ? 6 : day - 1; // days since Monday
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Get all dates in the week containing the given date (7 days, Mon-Sun). */
+export function weekDates(date: string): string[] {
+  const start = startOfWeek(date);
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+/** Get all dates in the month containing the given date. */
+export function monthDates(date: string): string[] {
+  const d = new Date(date + 'T00:00:00Z');
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const dates: string[] = [];
+  for (let i = 1; i <= daysInMonth; i++) {
+    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`);
+  }
+  return dates;
+}
+
+/** Get the date N days before the given date. */
+export function daysAgo(date: string, n: number): string {
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}

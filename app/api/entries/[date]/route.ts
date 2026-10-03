@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getEntryRow, deleteEntryRow } from '@/lib/sheets';
 import { canReadEntry, canDeleteEntry, assertUser, isAdmin } from '@/lib/permissions';
+import { canEditDate } from '@/lib/settings';
 
 export async function GET(
   req: NextRequest,
@@ -42,7 +43,14 @@ export async function DELETE(
   if (!canDeleteEntry(session, entry.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const ok = await deleteEntryRow(targetUser, date);
+  // Late-entry rule: regular users can only delete within the last 7 days
+  if (!canEditDate(date, isAdmin(session))) {
+    return NextResponse.json(
+      { error: 'This entry is outside the editable window. Only entries from the last 7 days can be deleted.' },
+      { status: 403 },
+    );
+  }
+  const ok = await deleteEntryRow(targetUser, date, session.email);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

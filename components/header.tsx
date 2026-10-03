@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeToggle } from './theme-toggle';
+import { AccessibilitySettings } from './accessibility-settings';
 import type { Session } from '@/lib/auth';
 
 export function Header({ session }: { session: Session }) {
@@ -47,6 +48,7 @@ export function Header({ session }: { session: Session }) {
             </nav>
           )}
           <LanguageSwitcher />
+          <AccessibilitySettings />
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
