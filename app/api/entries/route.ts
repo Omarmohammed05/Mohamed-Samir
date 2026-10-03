@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getUserEntries, upsertEntryRow } from '@/lib/sheets';
 import { entryInputSchema } from '@/lib/validators';
-import { assertUser } from '@/lib/permissions';
+import { assertUser, canWriteEntry } from '@/lib/permissions';
 
 export async function GET() {
   const session = await getSession();
@@ -33,10 +33,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Strip any user field from the client — always use session email
   const { date, a, b, c, d } = parsed.data;
+  // Admin can specify a target user; regular users always write as themselves
+  const targetUser = session.role === 'admin' && body.user
+    ? String(body.user).toLowerCase()
+    : session.email;
+  if (!canWriteEntry(session, targetUser)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
-    const entry = await upsertEntryRow(session.email, date, { a, b, c, d });
+    const entry = await upsertEntryRow(targetUser, date, { a, b, c, d });
     return NextResponse.json({ entry }, { status: 201 });
   } catch (err) {
     console.error('[entries POST] Error:', err instanceof Error ? err.message : 'unknown');

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getEntryRow, deleteEntryRow } from '@/lib/sheets';
-import { canReadEntry, canDeleteEntry, assertUser } from '@/lib/permissions';
+import { canReadEntry, canDeleteEntry, assertUser, isAdmin } from '@/lib/permissions';
 
 export async function GET(
   req: NextRequest,
@@ -33,12 +33,16 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const { date } = await params;
-  const entry = await getEntryRow(session.email, date);
+  // Admin can specify a target user via query param; regular users delete their own
+  const targetUser = isAdmin(session) && req.nextUrl.searchParams.get('user')
+    ? req.nextUrl.searchParams.get('user')!.toLowerCase()
+    : session.email;
+  const entry = await getEntryRow(targetUser, date);
   if (!entry) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (!canDeleteEntry(session, entry.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const ok = await deleteEntryRow(session.email, date);
+  const ok = await deleteEntryRow(targetUser, date);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

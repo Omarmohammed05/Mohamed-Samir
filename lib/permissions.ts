@@ -11,12 +11,12 @@ export function canReadEntry(session: Session, entryUser: string): boolean {
 }
 
 export function canWriteEntry(session: Session, entryUser: string): boolean {
-  if (session.role === 'admin') return false; // admin edits in Sheets, not on the site
+  if (session.role === 'admin') return true;
   return session.email.toLowerCase() === entryUser.toLowerCase();
 }
 
 export function canDeleteEntry(session: Session, entryUser: string): boolean {
-  if (session.role === 'admin') return false;
+  if (session.role === 'admin') return true;
   return session.email.toLowerCase() === entryUser.toLowerCase();
 }
 

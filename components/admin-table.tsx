@@ -6,15 +6,22 @@ import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import {
   RefreshCw, Download, ExternalLink, Search, ArrowUp, ArrowDown, Loader2,
+  Plus, Pencil, Trash2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { FIELDS } from '@/config/fields';
 import { formatDisplay, todayCairo } from '@/lib/date';
+import { AdminEntryDialog } from '@/components/admin-entry-dialog';
 import type { Entry } from '@/lib/mock-store';
 import type { Session } from '@/lib/auth';
 
@@ -35,6 +42,9 @@ type Props = {
 
 export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl, notSubmitted }: Props) {
   const t = useTranslations();
+  const ta = useTranslations('admin');
+  const tc = useTranslations('common');
+  const te = useTranslations('entries');
   const locale = useLocale() as 'en' | 'ar';
   const router = useRouter();
 
@@ -46,6 +56,40 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Entry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  function openAdd() {
+    setEditingEntry(null);
+    setDialogOpen(true);
+  }
+
+  function openEdit(entry: Entry) {
+    setEditingEntry(entry);
+    setDialogOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const url = `/api/entries/${deleteTarget.date}?user=${encodeURIComponent(deleteTarget.user)}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed');
+      }
+      toast.success(te('deleteSuccess'));
+      setDeleteTarget(null);
+      router.refresh();
+    } catch {
+      toast.error(te('deleteError'));
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const today = todayCairo();
   const entriesToday = entries.filter((e) => e.date === today).length;
@@ -156,21 +200,25 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
       {/* Toolbar */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {ta('addEntry')}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {t('common.refresh')}
+            {tc('refresh')}
           </Button>
           {sheetsMode === 'real' && sheetUrl && (
             <Button variant="outline" size="sm" asChild>
               <a href={sheetUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
-                {t('common.openInSheets')}
+                {tc('openInSheets')}
               </a>
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={exportCSV}>
             <Download className="h-4 w-4" />
-            {t('common.export')}
+            {tc('export')}
           </Button>
         </div>
 
@@ -180,7 +228,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
             <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              placeholder={t('common.search')}
+              placeholder={tc('search')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               className="ps-9"
@@ -228,9 +276,10 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                 ))}
                 <th className="border border-border px-3 py-2 text-start font-medium">
                   <button className="flex items-center gap-1 hover:text-primary" onClick={() => toggleSort('updatedAt')}>
-                    {t('admin.updatedAt')}{sortIcon('updatedAt')}
+                    {ta('updatedAt')}{sortIcon('updatedAt')}
                   </button>
                 </th>
+                <th className="w-20 border border-border px-2 py-2 text-center font-medium">{tc('edit')}</th>
               </tr>
             </thead>
             <tbody>
@@ -249,6 +298,16 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                     ))}
                     <td className="border border-border px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
                       {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : '—'}
+                    </td>
+                    <td className="border border-border px-2 py-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(entry)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -277,6 +336,16 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                 ))}
               </dl>
               <p className="text-xs text-muted-foreground mt-3">{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : ''}</p>
+              <div className="flex gap-2 mt-3">
+                <Button variant="outline" size="sm" onClick={() => openEdit(entry)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  {tc('edit')}
+                </Button>
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {tc('delete')}
+                </Button>
+              </div>
             </Card>
           );
         })}
@@ -296,8 +365,38 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
       )}
 
       {filtered.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-8">{t('common.noResults')}</p>
+        <p className="text-center text-sm text-muted-foreground py-8">{tc('noResults')}</p>
       )}
+
+      {/* Add/Edit entry dialog */}
+      <AdminEntryDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        knownUsers={knownUsers}
+        editingEntry={editingEntry}
+        defaultDate={today}
+      />
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{te('deleteConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {te('deleteConfirmDescription', { date: deleteTarget ? formatDisplay(deleteTarget.date, locale) : '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {tc('cancel')}
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {tc('delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
