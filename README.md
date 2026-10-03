@@ -13,16 +13,16 @@ A private team site where **4 users** submit one entry per day and an **admin** 
 - Mobile-first responsive design
 - Mock mode for zero-config local development
 
-## Quick start (mock mode, no credentials needed)
+## Quick start (Excel mode, no credentials needed)
 
 ```bash
 cp .env.example .env.local
-# Defaults are fine — AUTH_MODE=mock, SHEETS_MODE=mock
+# Defaults: AUTH_MODE=mock, SHEETS_MODE=excel
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000/en` and sign in:
+The app auto-creates `data/entries.xlsx` with seed data on first run. Open `http://localhost:3000/en` and sign in:
 
 | Role  | Email             | Password   |
 |-------|-------------------|------------|
@@ -109,6 +109,16 @@ Reset a password:
 ```bash
 npm run reset-password -- --email sara@team.com --password "newpass"
 ```
+
+## Data modes
+
+| Mode | `SHEETS_MODE` | Description |
+|------|---------------|-------------|
+| Mock | `mock` | In-memory store with seed data, resets on restart |
+| Excel | `excel` (default) | Local `.xlsx` file at `EXCEL_FILE_PATH` (default `data/entries.xlsx`), auto-created with seed data |
+| Google Sheets | `real` | Google Sheets API via service account (see below) |
+
+For Excel mode, no credentials are needed. The file is created automatically with the `Entries` sheet and header row: `Date | User | A | B | C | D | UpdatedAt`.
 
 ### 4. Deploy to Vercel
 

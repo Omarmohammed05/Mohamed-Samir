@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useRouter } from 'next-intl/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import {
   RefreshCw, Download, ExternalLink, Search, ArrowUp, ArrowDown, AlertTriangle, Loader2,
@@ -27,7 +27,7 @@ type Props = {
   entries: Entry[];
   warnings: string[];
   knownUsers: { email: string; name: string }[];
-  sheetsMode: 'mock' | 'real';
+  sheetsMode: 'mock' | 'excel' | 'real';
   sheetUrl: string | null;
   session: Session;
   notSubmitted: { email: string; name: string }[];

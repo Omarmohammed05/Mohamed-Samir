@@ -4,12 +4,19 @@ import {
   listAll, listForUser, getEntry, upsertEntry, deleteEntry,
   type Entry,
 } from './mock-store';
+import {
+  listAllExcel, listForUserExcel, getEntryExcel, upsertEntryExcel, deleteEntryExcel,
+} from './excel-store';
 import { invalidateAll } from './cache';
 
 const HEADER = ['Date', 'User', 'A', 'B', 'C', 'D', 'UpdatedAt'];
 
 function isMock(): boolean {
-  return process.env.SHEETS_MODE !== 'real';
+  return process.env.SHEETS_MODE === 'mock' || !process.env.SHEETS_MODE;
+}
+
+function isExcel(): boolean {
+  return process.env.SHEETS_MODE === 'excel';
 }
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
@@ -49,6 +56,9 @@ export type ListResult = {
 export async function listEntries(): Promise<ListResult> {
   if (isMock()) {
     return { entries: listAll(), warnings: [] };
+  }
+  if (isExcel()) {
+    return listAllExcel();
   }
 
   const sheets = getSheetsClient();
@@ -104,6 +114,9 @@ export async function getUserEntries(user: string): Promise<Entry[]> {
   if (isMock()) {
     return listForUser(user);
   }
+  if (isExcel()) {
+    return listForUserExcel(user);
+  }
   const { entries } = await listEntries();
   return entries.filter((e) => e.user === user.toLowerCase());
 }
@@ -111,6 +124,9 @@ export async function getUserEntries(user: string): Promise<Entry[]> {
 export async function getEntryRow(user: string, date: string): Promise<Entry | null> {
   if (isMock()) {
     return getEntry(user, date) || null;
+  }
+  if (isExcel()) {
+    return getEntryExcel(user, date);
   }
   const { entries } = await listEntries();
   return entries.find((e) => e.user === user.toLowerCase() && e.date === date) || null;
@@ -126,6 +142,9 @@ export async function upsertEntryRow(
 
   if (isMock()) {
     return upsertEntry(user, date, data);
+  }
+  if (isExcel()) {
+    return upsertEntryExcel(user, date, data);
   }
 
   const sheets = getSheetsClient();
@@ -174,6 +193,9 @@ export async function deleteEntryRow(user: string, date: string): Promise<boolea
 
   if (isMock()) {
     return deleteEntry(user, date);
+  }
+  if (isExcel()) {
+    return deleteEntryExcel(user, date);
   }
 
   const sheets = getSheetsClient();

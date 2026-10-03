@@ -13,7 +13,8 @@ docker compose -f docker-compose.base44.yml up -d
 ## Modes
 - `AUTH_MODE=mock` (default): uses 5 predefined users in `config/mock-users.ts`, session signed with `JWT_SECRET`
 - `AUTH_MODE=supabase`: uses Supabase Auth (requires Supabase env vars)
-- `SHEETS_MODE=mock` (default): in-memory store with seed data in `lib/mock-store.ts`
+- `SHEETS_MODE=excel` (default): reads/writes a local Excel file at `EXCEL_FILE_PATH` (default `data/entries.xlsx`), auto-created with seed data
+- `SHEETS_MODE=mock`: in-memory store with seed data in `lib/mock-store.ts` (resets on restart)
 - `SHEETS_MODE=real`: uses Google Sheets API (requires Google env vars)
 
 ## Demo credentials (mock mode)
@@ -23,7 +24,7 @@ docker compose -f docker-compose.base44.yml up -d
 ## Key architecture decisions
 - **Auth abstraction** (`lib/auth.ts`): unified `getSession()` works in both mock and Supabase modes. Mock mode signs a JWT in a cookie; Supabase mode reads the Supabase session.
 - **Permissions** (`lib/permissions.ts`): server-side only. Users can only read/write/delete their own entries. Admin is read-only on the site (edits in Sheets).
-- **Sheets module** (`lib/sheets.ts`): single module touching the Sheets API. Finds rows by (User, Date) key, never by row number. Mock mode delegates to `lib/mock-store.ts`.
+- **Sheets module** (`lib/sheets.ts`): single module touching the data store. Finds rows by (User, Date) key, never by row number. Excel mode (`lib/excel-store.ts`) reads/writes a local .xlsx file. Mock mode delegates to `lib/mock-store.ts`. Real mode uses Google Sheets API.
 - **i18n**: next-intl with `en`/`ar` locales, full RTL support. Messages in `messages/en.json` and `messages/ar.json`.
 - **Cache** (`lib/cache.ts`): 10-second TTL for admin data. Invalidated on writes.
 

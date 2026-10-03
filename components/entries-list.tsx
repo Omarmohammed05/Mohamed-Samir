@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useRouter } from 'next-intl/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import { Search, Trash2, Pencil, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';

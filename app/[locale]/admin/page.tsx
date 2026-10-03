@@ -42,7 +42,7 @@ export default async function AdminPage({
   const sheetUrl = process.env.GOOGLE_SHEET_ID
     ? `https://docs.google.com/spreadsheets/d/${process.env.GOOGLE_SHEET_ID}/edit`
     : null;
-  const sheetsMode = process.env.SHEETS_MODE === 'real' ? 'real' : 'mock' as const;
+  const sheetsMode = (process.env.SHEETS_MODE || 'excel') as 'mock' | 'excel' | 'real';
 
   return (
     <div className="min-h-screen bg-background">
