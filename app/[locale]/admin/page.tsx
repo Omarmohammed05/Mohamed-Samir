@@ -7,6 +7,8 @@ import { todayCairo } from '@/lib/date';
 import { MOCK_USERS } from '@/config/mock-users';
 import { Header } from '@/components/header';
 import { AdminTable } from '@/components/admin-table';
+import { listUsers } from '@/lib/users';
+import { UserManager } from '@/components/user-manager';
 
 const ADMIN_CACHE_KEY = 'admin-entries';
 
@@ -32,17 +34,30 @@ export default async function AdminPage({
   }
 
   const { entries, warnings } = cached;
+  const sheetsMode = (process.env.SHEETS_MODE || 'excel') as 'mock' | 'excel' | 'real';
+
+  // Fetch users — dynamic from Google Sheets in real mode, mock otherwise
+  let users: { email: string; name: string; role: 'user' | 'admin' }[] = [];
+  if (sheetsMode === 'real') {
+    try {
+      const allUsers = await listUsers();
+      users = allUsers.map((u) => ({ email: u.email, name: u.name, role: u.role }));
+    } catch {
+      // Users sheet might not exist yet — UserManager will show the notice
+    }
+  } else {
+    users = MOCK_USERS.map((u) => ({ email: u.email, name: u.name, role: u.role }));
+  }
+
   const today = todayCairo();
-  const knownUserEmails = MOCK_USERS.map((u) => u.email);
   const submittedToday = new Set(entries.filter((e) => e.date === today).map((e) => e.user));
-  const notSubmitted = MOCK_USERS
+  const notSubmitted = users
     .filter((u) => u.role === 'user' && !submittedToday.has(u.email))
     .map((u) => ({ email: u.email, name: u.name }));
 
   const sheetUrl = process.env.GOOGLE_SHEET_ID
     ? `https://docs.google.com/spreadsheets/d/${process.env.GOOGLE_SHEET_ID}/edit`
     : null;
-  const sheetsMode = (process.env.SHEETS_MODE || 'excel') as 'mock' | 'excel' | 'real';
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,12 +67,13 @@ export default async function AdminPage({
         <AdminTable
           entries={entries}
           warnings={warnings}
-          knownUsers={MOCK_USERS.map((u) => ({ email: u.email, name: u.name }))}
+          knownUsers={users.map((u) => ({ email: u.email, name: u.name }))}
           sheetsMode={sheetsMode}
           sheetUrl={sheetUrl}
           session={session}
           notSubmitted={notSubmitted}
         />
+        <UserManager users={users} sheetsMode={sheetsMode} />
       </main>
     </div>
   );

@@ -24,3 +24,19 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const userCreateSchema = z.object({
+  email: z.string().email('Invalid email'),
+  name: z.string().min(1, 'Name is required').max(100, 'Max 100 characters'),
+  role: z.enum(['user', 'admin']),
+  password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Max 100 characters'),
+});
+
+export const userUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  role: z.enum(['user', 'admin']).optional(),
+  password: z.string().min(6).max(100).optional(),
+});
+
+export type UserCreateInput = z.infer<typeof userCreateSchema>;
+export type UserUpdateInput = z.infer<typeof userUpdateSchema>;

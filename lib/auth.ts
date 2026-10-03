@@ -21,6 +21,17 @@ function isMock(): boolean {
 // ─── Mock auth ──────────────────────────────────────────
 
 export async function mockLogin(email: string, password: string): Promise<Session | null> {
+  // In real Sheets mode, authenticate against users stored in Google Sheets
+  if (process.env.SHEETS_MODE === 'real') {
+    const { listUsers } = await import('./users');
+    const users = await listUsers();
+    const user = users.find(
+      (u) => u.email === email.toLowerCase().trim() && u.password === password,
+    );
+    if (!user) return null;
+    return { email: user.email, role: user.role, name: user.name };
+  }
+
   const user = MOCK_USERS.find(
     (u) => u.email === email.toLowerCase().trim() && u.password === password,
   );

@@ -92,5 +92,6 @@ export function formatDisplay(date: string, locale: string): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: CAIRO_TZ,
   });
 }

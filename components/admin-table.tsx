@@ -222,25 +222,26 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-xl border border-border lg:block">
+      <div className="hidden overflow-hidden rounded-xl border border-border md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-card border-b border-border">
-              <tr>
-                <th className="px-4 py-3 text-start font-medium">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-emerald-50 dark:bg-emerald-950/30">
+                <th className="w-10 border border-border px-2 py-2 text-center text-xs font-medium text-muted-foreground">#</th>
+                <th className="border border-border px-3 py-2 text-start font-medium">
                   <button className="flex items-center gap-1 hover:text-primary" onClick={() => toggleSort('date')}>
                     {t('admin.date')}{sortIcon('date')}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-start font-medium">
+                <th className="border border-border px-3 py-2 text-start font-medium">
                   <button className="flex items-center gap-1 hover:text-primary" onClick={() => toggleSort('user')}>
                     {t('admin.user')}{sortIcon('user')}
                   </button>
                 </th>
                 {FIELDS.map((f) => (
-                  <th key={f.key} className="px-4 py-3 text-start font-medium">{f.label[locale]}</th>
+                  <th key={f.key} className="border border-border px-3 py-2 text-start font-medium">{f.label[locale]}</th>
                 ))}
-                <th className="px-4 py-3 text-start font-medium">
+                <th className="border border-border px-3 py-2 text-start font-medium">
                   <button className="flex items-center gap-1 hover:text-primary" onClick={() => toggleSort('updatedAt')}>
                     {t('admin.updatedAt')}{sortIcon('updatedAt')}
                   </button>
@@ -251,16 +252,17 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
               {pageItems.map((entry, i) => {
                 const user = knownUsers.find((u) => u.email === entry.user);
                 return (
-                  <tr key={`${entry.user}-${entry.date}-${i}`} className="border-b border-border last:border-0 odd:bg-muted/30">
-                    <td className="px-4 py-3 whitespace-nowrap font-medium">{formatDisplay(entry.date, locale)}</td>
-                    <td className="px-4 py-3">
+                  <tr key={`${entry.user}-${entry.date}-${i}`}>
+                    <td className="w-10 border border-border bg-muted/30 px-2 py-2 text-center text-xs text-muted-foreground">{current * PAGE_SIZE + i + 1}</td>
+                    <td className="border border-border px-3 py-2 whitespace-nowrap font-medium">{formatDisplay(entry.date, locale)}</td>
+                    <td className="border border-border px-3 py-2">
                       <div className="font-medium">{user?.name || entry.user}</div>
                       <div className="text-xs text-muted-foreground">{entry.user}</div>
                     </td>
                     {FIELDS.map((f) => (
-                      <td key={f.key} className="px-4 py-3 max-w-xs truncate">{entry[f.key] || '—'}</td>
+                      <td key={f.key} className="border border-border px-3 py-2 max-w-xs truncate">{entry[f.key] || '—'}</td>
                     ))}
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                    <td className="border border-border px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
                       {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : '—'}
                     </td>
                   </tr>
@@ -272,7 +274,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
       </div>
 
       {/* Mobile cards */}
-      <div className="flex flex-col gap-3 lg:hidden">
+      <div className="flex flex-col gap-3 md:hidden">
         {pageItems.map((entry, i) => {
           const user = knownUsers.find((u) => u.email === entry.user);
           return (
@@ -289,7 +291,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                   </div>
                 ))}
               </dl>
-              <p className="text-xs text-muted-foreground mt-3">{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : ''}</p>
+              <p className="text-xs text-muted-foreground mt-3">{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : ''}</p>
             </Card>
           );
         })}
