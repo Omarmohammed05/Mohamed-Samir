@@ -261,7 +261,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                       <td key={f.key} className="px-4 py-3 max-w-xs truncate">{entry[f.key] || '—'}</td>
                     ))}
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
-                      {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                      {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : '—'}
                     </td>
                   </tr>
                 );
