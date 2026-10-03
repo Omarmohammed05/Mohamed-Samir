@@ -20,6 +20,7 @@ type Props = {
 
 export function EntryForm({ todayDate, existingEntry }: Props) {
   const t = useTranslations('entries');
+  const tc = useTranslations('common');
   const locale = useLocale() as 'en' | 'ar';
   const router = useRouter();
   const [date, setDate] = useState(existingEntry?.date || todayDate);
@@ -112,7 +113,7 @@ export function EntryForm({ todayDate, existingEntry }: Props) {
               ) : (
                 <>
                   <Save />
-                  {t('common.save')}
+                  {tc('save')}
                 </>
               )}
             </Button>
