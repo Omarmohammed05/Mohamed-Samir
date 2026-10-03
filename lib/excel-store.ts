@@ -142,12 +142,13 @@ export async function upsertEntryExcel(
       }
     });
 
-    if (foundRow) {
-      foundRow.getCell(3).value = data.a;
-      foundRow.getCell(4).value = data.b;
-      foundRow.getCell(5).value = data.c;
-      foundRow.getCell(6).value = data.d;
-      foundRow.getCell(7).value = updatedAt;
+    const row = foundRow as ExcelJS.Row | null;
+    if (row) {
+      row.getCell(3).value = data.a;
+      row.getCell(4).value = data.b;
+      row.getCell(5).value = data.c;
+      row.getCell(6).value = data.d;
+      row.getCell(7).value = updatedAt;
     } else {
       const newRow = ws.addRow([date, userLower, data.a, data.b, data.c, data.d, updatedAt]);
       // Re-sort by date descending so newest is at top (optional)

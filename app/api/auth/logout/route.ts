@@ -6,7 +6,7 @@ export async function POST() {
   const isMock = process.env.AUTH_MODE !== 'supabase';
 
   if (!isMock) {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
   }
 

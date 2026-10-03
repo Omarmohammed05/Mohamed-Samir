@@ -30,7 +30,18 @@ async function main() {
 
   const supabase = createClient(url, key, { auth: { autoRefreshToken: false } });
 
-  const { data, error } = await supabase.auth.admin.updateUserByEmail(email, { password });
+  const { data: userData, error: lookupError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .single();
+
+  if (lookupError || !userData) {
+    console.error('User not found:', lookupError?.message || 'no match');
+    process.exit(1);
+  }
+
+  const { data, error } = await supabase.auth.admin.updateUserById(userData.id, { password });
 
   if (error) {
     console.error('Failed:', error.message);
