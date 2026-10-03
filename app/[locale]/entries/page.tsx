@@ -49,7 +49,6 @@ export default async function EntriesPage({
         <EntryForm
           todayDate={today}
           existingEntry={todayEntry as Entry | null}
-          onSaved={() => {}}
         />
         <EntriesList initialEntries={entries} todayDate={today} />
       </main>

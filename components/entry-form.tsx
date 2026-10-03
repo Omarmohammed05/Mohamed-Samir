@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import { Save, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -15,12 +16,12 @@ import type { Entry } from '@/lib/mock-store';
 type Props = {
   todayDate: string;
   existingEntry: Entry | null;
-  onSaved: () => void;
 };
 
-export function EntryForm({ todayDate, existingEntry, onSaved }: Props) {
+export function EntryForm({ todayDate, existingEntry }: Props) {
   const t = useTranslations('entries');
   const locale = useLocale() as 'en' | 'ar';
+  const router = useRouter();
   const [date, setDate] = useState(existingEntry?.date || todayDate);
   const [fields, setFields] = useState({
     a: existingEntry?.a || '',
@@ -55,7 +56,7 @@ export function EntryForm({ todayDate, existingEntry, onSaved }: Props) {
         throw new Error(data.error || 'Failed');
       }
       toast.success(t('saveSuccess'));
-      onSaved();
+      router.refresh();
     } catch {
       toast.error(t('saveError'));
     } finally {
