@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import {
-  RefreshCw, Download, ExternalLink, Search, ArrowUp, ArrowDown, AlertTriangle, Loader2,
+  RefreshCw, Download, ExternalLink, Search, ArrowUp, ArrowDown, Loader2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -152,21 +152,6 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
           )}
         </Card>
       </div>
-
-      {/* Warnings */}
-      {warnings.length > 0 && (
-        <Card className="border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20">
-          <CardContent className="flex items-start gap-3 p-4">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="flex flex-col gap-1">
-              <p className="font-medium text-sm text-amber-800 dark:text-amber-200">{t('admin.dataWarnings')}</p>
-              <ul className="text-xs text-amber-700 dark:text-amber-300 list-disc list-inside">
-                {warnings.map((w, i) => <li key={i}>{w}</li>)}
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Toolbar */}
       <div className="flex flex-col gap-3">

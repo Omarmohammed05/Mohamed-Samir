@@ -27,13 +27,19 @@ export default async function AdminPage({
 
   // Short-lived cache (~10s)
   let cached = getCached<{ entries: typeof import('@/lib/mock-store').Entry[]; warnings: string[] }>(ADMIN_CACHE_KEY);
+  let sheetsError: string | null = null;
   if (!cached) {
-    const result = await listEntries();
-    cached = { entries: result.entries, warnings: result.warnings };
-    setCached(ADMIN_CACHE_KEY, cached, 10_000);
+    try {
+      const result = await listEntries();
+      cached = { entries: result.entries, warnings: result.warnings };
+      setCached(ADMIN_CACHE_KEY, cached, 10_000);
+    } catch (err) {
+      sheetsError = err instanceof Error ? err.message : 'Failed to connect to Google Sheets';
+    }
   }
 
-  const { entries, warnings } = cached;
+  const entries = cached?.entries ?? [];
+  const warnings = cached?.warnings ?? [];
   const sheetsMode = (process.env.SHEETS_MODE || 'excel') as 'mock' | 'excel' | 'real';
 
   // Fetch users — dynamic from Google Sheets in real mode, mock otherwise
@@ -64,6 +70,15 @@ export default async function AdminPage({
       <Header session={session} />
       <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6">
         <h1 className="text-2xl font-bold tracking-tight">{t('admin.title')}</h1>
+        {sheetsError && (
+          <div className="rounded-xl border border-destructive/50 bg-destructive/5 p-4 flex flex-col gap-2">
+            <p className="font-medium text-sm text-destructive">Google Sheets connection error</p>
+            <p className="text-sm text-muted-foreground">{sheetsError}</p>
+            <p className="text-sm text-muted-foreground">
+              Make sure the Google Sheets API is enabled in your Google Cloud project and your service account has access to the spreadsheet.
+            </p>
+          </div>
+        )}
         <AdminTable
           entries={entries}
           warnings={warnings}
