@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getSession } from '@/lib/auth';
 import { LanguageSwitcher } from '@/components/language-switcher';
+
+export const dynamic = 'force-dynamic';
 import { LoginClient } from './login-client';
 
 export default async function LoginPage({

@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getSession } from '@/lib/auth';
 import { getUserEntries, getEntryRow } from '@/lib/sheets';
+
+export const dynamic = 'force-dynamic';
 import { todayCairo } from '@/lib/date';
 import { Header } from '@/components/header';
 import { EntryForm } from '@/components/entry-form';

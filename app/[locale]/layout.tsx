@@ -31,10 +31,6 @@ export const metadata = {
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const cairo = Cairo({ subsets: ['arabic'], variable: '--font-arabic', display: 'swap' });
 
-export function generateStaticParams() {
-  return [{ locale: 'en' }, { locale: 'ar' }];
-}
-
 export default async function LocaleLayout({
   children,
   params,

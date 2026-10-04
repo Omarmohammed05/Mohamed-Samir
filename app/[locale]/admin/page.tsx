@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getSession } from '@/lib/auth';
 import { listEntries } from '@/lib/sheets';
+
+export const dynamic = 'force-dynamic';
 import { getCached, setCached } from '@/lib/cache';
 import { todayCairo } from '@/lib/date';
 import { MOCK_USERS } from '@/config/mock-users';
