@@ -6,6 +6,7 @@ import { Inter, Cairo } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/toaster';
 import { PwaRegister } from '@/components/pwa-register';
+import { InstallAppButton } from '@/components/install-app-button';
 import '../globals.css';
 
 export const viewport: Viewport = {
@@ -64,6 +65,7 @@ export default async function LocaleLayout({
           </NextIntlClientProvider>
           <Toaster />
           <PwaRegister />
+          <InstallAppButton />
         </ThemeProvider>
       </body>
     </html>
