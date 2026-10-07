@@ -165,8 +165,11 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
   async function handleRefresh() {
     setRefreshing(true);
     try {
-      router.refresh();
+      await fetch('/api/admin/refresh', { method: 'POST' });
+      await router.refresh();
       toast.success(t('admin.refreshSuccess'));
+    } catch {
+      toast.error(t('admin.refreshError'));
     } finally {
       setRefreshing(false);
     }
