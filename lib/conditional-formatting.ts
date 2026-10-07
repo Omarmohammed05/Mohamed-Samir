@@ -1,13 +1,14 @@
 /**
  * Google Sheets conditional formatting — mirrors the admin-table UI's
- * out-of-range highlighting. Cells in the Entries tab turn orange (#FFFBE6)
- * when their numeric value falls outside the configured field range.
+ * out-of-range highlighting. Cells in the Entries tab get an amber background
+ * (#FEF3C7) and dark amber text (#92400E) when their numeric value falls outside
+ * the configured field range.
  *
  * Columns in the Entries tab:
  *   C = Task (a), D = Progress (b), E = Blockers (c), F = Notes (d)
  *
- * Conditional-formatting custom formulas use ISNUMBER + comparison against
- * the range bounds. Blank or non-numeric cells are never highlighted.
+ * Conditional-formatting custom formulas convert numeric text before comparing
+ * against the range bounds. Blank or non-numeric cells are never highlighted.
  */
 import { google } from 'googleapis';
 import type { FieldRanges } from './field-ranges';
@@ -48,7 +49,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
 
 /**
  * Apply (or refresh) conditional-formatting rules on the Entries tab so that
- * out-of-range numeric cells get an orange background. Removes any existing
+ * out-of-range numeric cells get an amber background and dark amber text. Removes any existing
  * rules on the data columns first, then adds the new ones.
  *
  * Only runs in real mode (SHEETS_MODE=real). No-op otherwise.
@@ -83,13 +84,20 @@ export async function applyConditionalFormatting(ranges: FieldRanges): Promise<v
     const col = FIELD_COLUMN[f.key];
     const colIndex = col.charCodeAt(0) - 65; // C=2, D=3, E=4, F=5
     const { min, max } = ranges[f.key];
-    // CUSTOM_FORMULA in the Sheets API requires the formula WITH a leading '='
-    const formula = `=AND(ISNUMBER(${col}2),OR(${col}2<${min},${col}2>${max}))`;
+    // Entries are written as RAW strings. Coerce numeric text without changing
+    // stored values; ignore blank cells and text that cannot be converted.
+    // CUSTOM_FORMULA requires a leading '='.
+    const formula = `=IFERROR(AND(LEN(TRIM(${col}2&""))>0,OR(VALUE(${col}2)<${min},VALUE(${col}2)>${max})),FALSE)`;
     return {
       ranges: [{ sheetId: tabId, startColumnIndex: colIndex, endColumnIndex: colIndex + 1, startRowIndex: 1 }],
       booleanRule: {
         condition: { type: 'CUSTOM_FORMULA' as const, values: [{ userEnteredValue: formula }] },
-        format: { backgroundColor: AMBER_BG },
+        format: {
+          backgroundColor: AMBER_BG,
+          textFormat: {
+            foregroundColor: { red: 146 / 255, green: 64 / 255, blue: 14 / 255 }, // #92400E (amber-800)
+          },
+        },
       },
     };
   });
