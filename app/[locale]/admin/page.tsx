@@ -13,6 +13,7 @@ import { MissingEntriesReport } from '@/components/missing-entries-report';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { listUsers } from '@/lib/users';
 import { UserManager } from '@/components/user-manager';
+import { RangeSettings } from '@/components/range-settings';
 import Link from 'next/link';
 
 const ADMIN_CACHE_KEY = 'admin-entries';
@@ -119,6 +120,7 @@ export default async function AdminPage({
           </Link>
         </div>
 
+        <RangeSettings />
         <UserManager users={users} sheetsMode={sheetsMode} />
       </main>
     </div>

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, AlertTriangle } from 'lucide-react';
+import { isOutOfRange, type FieldRange } from '@/lib/range-utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,14 @@ export function EntryForm({ todayDate, existingEntry }: Props) {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [ranges, setRanges] = useState<Record<string, FieldRange>>({});
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => setRanges(data.ranges || {}))
+      .catch(() => {});
+  }, []);
 
   const isEdit = !!existingEntry;
 
@@ -57,6 +66,12 @@ export function EntryForm({ todayDate, existingEntry }: Props) {
         throw new Error(data.error || 'Failed');
       }
       toast.success(t('saveSuccess'));
+      const outOfRange = FIELDS.filter(
+        (f) => ranges[f.key] && isOutOfRange(fields[f.key], ranges[f.key]),
+      );
+      if (outOfRange.length > 0) {
+        toast.warning(t('entries.rangeWarningToast'));
+      }
       router.refresh();
     } catch {
       toast.error(t('saveError'));
@@ -98,6 +113,19 @@ export function EntryForm({ todayDate, existingEntry }: Props) {
                 />
                 {errors[f.key] && (
                   <span className="text-xs text-destructive">{errors[f.key]}</span>
+                )}
+                {ranges[f.key] && (
+                  <>
+                    <span className="text-xs text-muted-foreground">
+                      {t('entries.rangeHint', { min: ranges[f.key].min, max: ranges[f.key].max })}
+                    </span>
+                    {isOutOfRange(fields[f.key], ranges[f.key]) && (
+                      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                        <AlertTriangle className="h-3 w-3" />
+                        {t('entries.rangeWarning', { min: ranges[f.key].min, max: ranges[f.key].max })}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             ))}
