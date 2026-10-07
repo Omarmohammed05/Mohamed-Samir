@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { toast } from 'sonner';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, Paintbrush } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ export function RangeSettings() {
   const [ranges, setRanges] = useState<Record<string, FieldRange>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -84,7 +85,29 @@ export function RangeSettings() {
             );
           })}
         </div>
-        <div className="flex justify-end mt-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 mt-4">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setSyncing(true);
+              try {
+                const res = await fetch('/api/settings/conditional-formatting', { method: 'POST' });
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}));
+                  throw new Error(data.error || 'Failed');
+                }
+                toast.success(t('admin.conditionalFormattingSynced'));
+              } catch {
+                toast.error(t('admin.conditionalFormattingSyncError'));
+              } finally {
+                setSyncing(false);
+              }
+            }}
+            disabled={syncing}
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paintbrush className="h-4 w-4" />}
+            {t('admin.applyToSheet')}
+          </Button>
           <Button onClick={handleSave} disabled={saving} className="min-w-32">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save />}
             {t('common.save')}
