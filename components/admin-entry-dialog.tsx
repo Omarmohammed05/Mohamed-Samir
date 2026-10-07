@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import { isOutOfRange, type FieldRange } from '@/lib/range-utils';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -38,6 +39,14 @@ export function AdminEntryDialog({ open, onOpenChange, knownUsers, editingEntry,
   const [fields, setFields] = useState({ a: '', b: '', c: '', d: '' });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [ranges, setRanges] = useState<Record<string, FieldRange>>({});
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => setRanges(data.ranges || {}))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -134,6 +143,19 @@ export function AdminEntryDialog({ open, onOpenChange, knownUsers, editingEntry,
                 />
                 {errors[f.key] && (
                   <span className="text-xs text-destructive">{errors[f.key]}</span>
+                )}
+                {ranges[f.key] && (
+                  <>
+                    <span className="text-xs text-muted-foreground">
+                      {t('rangeHint', { min: ranges[f.key].min, max: ranges[f.key].max })}
+                    </span>
+                    {isOutOfRange(fields[f.key], ranges[f.key]) && (
+                      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                        <AlertTriangle className="h-3 w-3" />
+                        {t('rangeWarning', { min: ranges[f.key].min, max: ranges[f.key].max })}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             ))}
