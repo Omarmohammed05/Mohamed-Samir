@@ -63,6 +63,11 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
   const [deleteTarget, setDeleteTarget] = useState<Entry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [ranges, setRanges] = useState<Record<string, FieldRange>>({});
+  const [localEntries, setLocalEntries] = useState<Entry[]>(entries);
+
+  useEffect(() => {
+    setLocalEntries(entries);
+  }, [entries]);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -100,6 +105,9 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
       }
       toast.success(te('deleteSuccess'));
       setDeleteTarget(null);
+      setLocalEntries((prev) =>
+        prev.filter((e) => !(e.date === deleteTarget.date && e.user === deleteTarget.user)),
+      );
       router.refresh();
     } catch {
       toast.error(te('deleteError'));
@@ -109,10 +117,10 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
   }
 
   const today = todayCairo();
-  const entriesToday = entries.filter((e) => e.date === today).length;
+  const entriesToday = localEntries.filter((e) => e.date === today).length;
 
   const filtered = useMemo(() => {
-    let result = [...entries];
+    let result = [...localEntries];
 
     if (userFilter !== 'all') {
       result = result.filter((e) => e.user === userFilter);
@@ -139,7 +147,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
     });
 
     return result;
-  }, [entries, userFilter, dateFrom, dateTo, search, sortKey, sortDir]);
+  }, [localEntries, userFilter, dateFrom, dateTo, search, sortKey, sortDir]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pageCount - 1);
@@ -154,13 +162,17 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
     }
   }
 
-  function handleRefresh() {
+  async function handleRefresh() {
     setRefreshing(true);
-    router.refresh();
-    setTimeout(() => {
-      setRefreshing(false);
+    try {
+      await fetch('/api/admin/refresh', { method: 'POST' });
+      await router.refresh();
       toast.success(t('admin.refreshSuccess'));
-    }, 800);
+    } catch {
+      toast.error(t('admin.refreshError'));
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function exportCSV() {
@@ -192,7 +204,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-xs font-medium text-muted-foreground">{t('admin.totalEntries')}</p>
-          <p className="text-2xl font-bold mt-1">{entries.length}</p>
+          <p className="text-2xl font-bold mt-1">{localEntries.length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-muted-foreground">{t('admin.entriesToday')}</p>

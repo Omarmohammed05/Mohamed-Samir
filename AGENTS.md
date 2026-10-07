@@ -27,6 +27,7 @@ docker compose -f docker-compose.base44.yml up -d
 - **Sheets module** (`lib/sheets.ts`): single module touching the data store. Finds rows by (User, Date) key, never by row number. Excel mode (`lib/excel-store.ts`) reads/writes a local .xlsx file. Mock mode delegates to `lib/mock-store.ts`. Real mode uses Google Sheets API.
 - **i18n**: next-intl with `en`/`ar` locales, full RTL support. Messages in `messages/en.json` and `messages/ar.json`.
 - **Cache** (`lib/cache.ts`): 10-second TTL for admin data. Invalidated on writes.
+- **Sheet highlighting** (`lib/conditional-formatting.ts`): existing Sheet rules must be re-synced with the admin's **Apply to Sheet** button after formatting code changes; hot reload alone does not update the Sheet. Entries are written as RAW strings, so the rules must coerce numeric text (not just use `ISNUMBER` directly). Out-of-range values get an amber background and dark amber text without rewriting cell data. Test the rule payload with `npm run test -- tests/conditional-formatting.test.ts`.
 
 ## Commands
 - `npm run dev` — dev server on port 3000
