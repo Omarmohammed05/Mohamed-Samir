@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
 import {
   RefreshCw, Download, ExternalLink, Search, ArrowUp, ArrowDown, Loader2,
-  Plus, Pencil, Trash2,
+  Plus, Pencil, Trash2, AlertTriangle,
 } from 'lucide-react';
+import { isOutOfRange, type FieldRange } from '@/lib/range-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +62,21 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Entry | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [ranges, setRanges] = useState<Record<string, FieldRange>>({});
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => setRanges(data.ranges || {}))
+      .catch(() => {});
+  }, []);
+
+  /** Check if an entry has any field value outside its configured range. */
+  const entryRangeWarnings = useCallback((entry: Entry): string[] => {
+    if (!ranges || Object.keys(ranges).length === 0) return [];
+    return FIELDS.filter((f) => ranges[f.key] && isOutOfRange(entry[f.key], ranges[f.key]))
+      .map((f) => f.label[locale]);
+  }, [ranges, locale]);
 
   function openAdd() {
     setEditingEntry(null);
@@ -296,15 +312,29 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                 const user = knownUsers.find((u) => u.email === entry.user);
                 return (
                   <tr key={`${entry.user}-${entry.date}-${i}`}>
-                    <td className="w-10 border border-border bg-muted/30 px-2 py-2 text-center text-xs text-muted-foreground">{current * PAGE_SIZE + i + 1}</td>
+                    <td className="w-10 border border-border bg-muted/30 px-2 py-2 text-center text-xs text-muted-foreground">
+                      {entryRangeWarnings(entry).length > 0 && (
+                        <AlertTriangle className="inline h-3 w-3 text-amber-500" />
+                      )}
+                      {current * PAGE_SIZE + i + 1}
+                    </td>
                     <td className="border border-border px-3 py-2 whitespace-nowrap font-medium">{formatDisplay(entry.date, locale)}</td>
                     <td className="border border-border px-3 py-2">
                       <div className="font-medium">{user?.name || entry.user}</div>
                       <div className="text-xs text-muted-foreground">{entry.user}</div>
                     </td>
-                    {FIELDS.map((f) => (
-                      <td key={f.key} className="border border-border px-3 py-2 max-w-xs truncate">{entry[f.key] || '—'}</td>
-                    ))}
+                    {FIELDS.map((f) => {
+                      const oor = ranges[f.key] && isOutOfRange(entry[f.key], ranges[f.key]);
+                      return (
+                        <td
+                          key={f.key}
+                          className={`border border-border px-3 py-2 max-w-xs truncate ${oor ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                          title={oor ? t('entries.rangeWarning', { min: ranges[f.key].min, max: ranges[f.key].max }) : undefined}
+                        >
+                          {entry[f.key] || '—'}
+                        </td>
+                      );
+                    })}
                     <td className="border border-border px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
                       {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : '—'}
                     </td>
@@ -336,15 +366,23 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
             <Card key={`${entry.user}-${entry.date}-${i}`} className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-medium">{formatDisplay(entry.date, locale)}</span>
-                <Badge variant="secondary" className="text-xs">{user?.name || entry.user}</Badge>
+                <div className="flex items-center gap-2">
+                  {entryRangeWarnings(entry).length > 0 && (
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  )}
+                  <Badge variant="secondary" className="text-xs">{user?.name || entry.user}</Badge>
+                </div>
               </div>
               <dl className="grid grid-cols-1 gap-2">
-                {FIELDS.map((f) => (
-                  <div key={f.key}>
-                    <dt className="text-xs font-medium text-muted-foreground">{f.label[locale]}</dt>
-                    <dd className="text-sm break-words">{entry[f.key] || '—'}</dd>
-                  </div>
-                ))}
+                {FIELDS.map((f) => {
+                  const oor = ranges[f.key] && isOutOfRange(entry[f.key], ranges[f.key]);
+                  return (
+                    <div key={f.key} className={oor ? 'rounded bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5' : ''}>
+                      <dt className="text-xs font-medium text-muted-foreground">{f.label[locale]}</dt>
+                      <dd className="text-sm break-words">{entry[f.key] || '—'}</dd>
+                    </div>
+                  );
+                })}
               </dl>
               <p className="text-xs text-muted-foreground mt-3">{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Cairo' }) : ''}</p>
               {editMode && (
