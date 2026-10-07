@@ -78,13 +78,15 @@ export async function applyConditionalFormatting(ranges: FieldRanges): Promise<v
   }
 
   // Build new rules — one per field column
+  // Column index: C=2, D=3, E=4, F=5 (0-based)
   const newRules = FIELDS.filter((f) => ranges[f.key]).map((f) => {
     const col = FIELD_COLUMN[f.key];
+    const colIndex = col.charCodeAt(0) - 65; // C=2, D=3, E=4, F=5
     const { min, max } = ranges[f.key];
-    // Formula: highlight when cell is a number AND (value < min OR value > max)
+    // CUSTOM_FORMULA in the Sheets API requires the formula WITH a leading '='
     const formula = `=AND(ISNUMBER(${col}2),OR(${col}2<${min},${col}2>${max}))`;
     return {
-      ranges: [{ sheetId: tabId, startColumnIndex: col.charCodeAt(0) - 65, endColumnIndex: col.charCodeAt(0) - 65 + 1, startRowIndex: 1 }],
+      ranges: [{ sheetId: tabId, startColumnIndex: colIndex, endColumnIndex: colIndex + 1, startRowIndex: 1 }],
       booleanRule: {
         condition: { type: 'CUSTOM_FORMULA' as const, values: [{ userEnteredValue: formula }] },
         format: { backgroundColor: ORANGE_BG },
@@ -102,10 +104,10 @@ export async function applyConditionalFormatting(ranges: FieldRanges): Promise<v
     });
   }
 
-  // Add new rules
-  for (const rule of newRules) {
+  // Add new rules at the end (higher index = lower priority, but that's fine)
+  for (let i = 0; i < newRules.length; i++) {
     requests.push({
-      addConditionalFormatRule: { rule, index: 0 },
+      addConditionalFormatRule: { rule: newRules[i], index: i },
     });
   }
 
