@@ -16,8 +16,8 @@ import { FIELDS } from '@/config/fields';
 /** Map field keys to their column letter in the Entries sheet. */
 const FIELD_COLUMN: Record<string, string> = { a: 'C', b: 'D', c: 'E', d: 'F' };
 
-/** Orange background matching the UI's amber highlight. */
-const ORANGE_BG = { red: 1, green: 0.984, blue: 0.902 }; // #FFFBE6
+/** Amber background for out-of-range cells — visible enough in Google Sheets. */
+const AMBER_BG = { red: 0.996, green: 0.953, blue: 0.780 }; // #FEF3C7 (amber-100)
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
@@ -89,7 +89,7 @@ export async function applyConditionalFormatting(ranges: FieldRanges): Promise<v
       ranges: [{ sheetId: tabId, startColumnIndex: colIndex, endColumnIndex: colIndex + 1, startRowIndex: 1 }],
       booleanRule: {
         condition: { type: 'CUSTOM_FORMULA' as const, values: [{ userEnteredValue: formula }] },
-        format: { backgroundColor: ORANGE_BG },
+        format: { backgroundColor: AMBER_BG },
       },
     };
   });
