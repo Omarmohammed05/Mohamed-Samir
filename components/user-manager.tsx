@@ -106,9 +106,9 @@ export function UserManager({ users, sheetsMode }: Props) {
 
   if (!isReal) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 p-4">
-        <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
-        <p className="text-sm text-amber-800 dark:text-amber-200">{t('users.requiresSheets')}</p>
+      <div className="flex items-center gap-3 rounded-xl border border-[#F7F0C6]/50 bg-[#F7F0C6]/20 dark:bg-[#F7F0C6]/10 p-4">
+        <AlertCircle className="h-5 w-5 shrink-0 text-amber-700 dark:text-[#F7F0C6]" />
+        <p className="text-sm text-amber-900 dark:text-[#F7F0C6]">{t('users.requiresSheets')}</p>
       </div>
     );
   }

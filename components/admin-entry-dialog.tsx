@@ -150,7 +150,7 @@ export function AdminEntryDialog({ open, onOpenChange, knownUsers, editingEntry,
                       {t('rangeHint', { min: ranges[f.key].min, max: ranges[f.key].max })}
                     </span>
                     {isOutOfRange(fields[f.key], ranges[f.key]) && (
-                      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+                      <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-[#F7F0C6]">
                         <AlertTriangle className="h-3 w-3" />
                         {t('rangeWarning', { min: ranges[f.key].min, max: ranges[f.key].max })}
                       </span>

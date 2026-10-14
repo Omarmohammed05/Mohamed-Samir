@@ -18,7 +18,7 @@ import { FIELDS } from '@/config/fields';
 const FIELD_COLUMN: Record<string, string> = { a: 'C', b: 'D', c: 'E', d: 'F' };
 
 /** Amber background for out-of-range cells — visible enough in Google Sheets. */
-const AMBER_BG = { red: 0.996, green: 0.953, blue: 0.780 }; // #FEF3C7 (amber-100)
+const AMBER_BG = { red: 0.969, green: 0.941, blue: 0.776 }; // #F7F0C6
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
@@ -95,7 +95,7 @@ export async function applyConditionalFormatting(ranges: FieldRanges): Promise<v
         format: {
           backgroundColor: AMBER_BG,
           textFormat: {
-            foregroundColor: { red: 146 / 255, green: 64 / 255, blue: 14 / 255 }, // #92400E (amber-800)
+            foregroundColor: { red: 122 / 255, green: 106 / 255, blue: 31 / 255 }, // #7A6A1F (dark cream)
           },
         },
       },

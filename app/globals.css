@@ -52,6 +52,7 @@
     @apply bg-background text-foreground;
     font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
   html {
