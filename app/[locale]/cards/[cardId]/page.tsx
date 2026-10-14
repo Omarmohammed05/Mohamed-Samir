@@ -61,7 +61,7 @@ export default async function CardDetailPage({
   return (
     <div className="min-h-screen bg-background">
       <Header session={session} />
-      <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6 min-w-0">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon">
             <Link href="/cards">
