@@ -135,13 +135,13 @@ export function CardTabs({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Tab navigation — pill buttons */}
+      {/* Tab navigation — rectangular buttons */}
       <div className="flex gap-2 flex-wrap justify-center">
         {tabData.map((tab, i) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(i)}
-            className={`px-5 py-2 rounded-full font-bold text-sm transition-colors ${
+            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
               activeTab === i
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-card border border-border hover:bg-accent'
@@ -166,56 +166,57 @@ export function CardTabs({
         ))}
       </div>
 
-      {/* Equipment rows in a rounded card container */}
-      <div className="rounded-3xl bg-primary/10 p-4 sm:p-6 flex flex-col gap-4">
+      {/* Equipment rows in a card container */}
+      <div className="rounded-xl bg-primary/10 p-3 sm:p-5 flex flex-col gap-3">
         {currentTab.rows.map((row, i) => {
           const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
           return (
-            <div key={i} className="flex flex-col gap-2">
+            <div key={i} className="flex flex-col gap-1.5">
               {/* Row 1: Tag No + Description */}
-              <div className="flex gap-2 flex-wrap">
-                <div className="flex-1 min-w-[100px] px-4 py-2 rounded-full bg-card border border-border text-center text-sm font-medium">
+              <div className="flex gap-2">
+                <div className="flex-1 min-w-[90px] px-3 py-2 rounded-lg bg-card border border-border text-center text-sm font-medium flex items-center justify-center">
                   {row.tagNo}
                 </div>
-                <div className="flex-[2] min-w-[140px] px-4 py-2 rounded-full bg-card border border-border text-center text-sm">
+                <div className="flex-[2] min-w-[130px] px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
                   {row.description}
                 </div>
               </div>
-              {/* Row 2: Process Value + Unit/Min/Norm/Max grouped */}
-              <div className="flex gap-2 flex-wrap items-center">
+              {/* Row 2: Process Value + Unit + Min/Norm/Max */}
+              <div className="flex gap-2 items-stretch">
                 <input
                   type="text"
                   value={row.value || ''}
                   onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
-                  className={`w-28 px-4 py-2 rounded-full text-center text-sm border focus:outline-none min-w-[100px] ${
+                  className={`w-24 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
                     outOfRange
                       ? 'border-red-500 bg-red-50 text-red-700'
                       : 'bg-card border-border focus:border-primary'
                   }`}
                 />
-                {/* Unit + Min/Norm/Max grouped together */}
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <span className="text-xs text-muted-foreground font-medium">{row.unit}</span>
-                  <div className="px-3 py-1 rounded-full bg-card border border-border flex flex-col items-center gap-0.5 min-w-[55px]">
+                <div className="px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center min-w-[45px]">
+                  {row.unit}
+                </div>
+                {/* Min/Norm/Max stacked */}
+                <div className="px-2 py-1 rounded-lg bg-card border border-border flex flex-col items-center justify-center gap-0.5 min-w-[50px] ml-auto">
                   {isAdmin ? (
                     <>
                       <input
                         type="text"
                         value={row.min}
                         onChange={(e) => handleRangeChange(activeTab, i, 'min', e.target.value)}
-                        className="w-12 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
+                        className="w-10 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
                       />
                       <input
                         type="text"
                         value={row.norm}
                         onChange={(e) => handleRangeChange(activeTab, i, 'norm', e.target.value)}
-                        className="w-12 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
+                        className="w-10 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
                       />
                       <input
                         type="text"
                         value={row.max}
                         onChange={(e) => handleRangeChange(activeTab, i, 'max', e.target.value)}
-                        className="w-12 text-center text-xs bg-transparent focus:outline-none"
+                        className="w-10 text-center text-xs bg-transparent focus:outline-none"
                       />
                     </>
                   ) : (
@@ -225,7 +226,6 @@ export function CardTabs({
                       <span className="text-xs leading-tight">{row.max}</span>
                     </>
                   )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -235,7 +235,7 @@ export function CardTabs({
 
       {/* Out-of-range warning */}
       {outOfRangeCount > 0 && (
-        <div className="flex items-center gap-2 rounded-full border border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{t('outOfRange')} ({outOfRangeCount})</span>
         </div>
@@ -249,7 +249,7 @@ export function CardTabs({
       {/* Save buttons */}
       <div className="flex justify-center gap-2">
         {isAdmin && (
-          <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges} className="rounded-full">
+          <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges} className="rounded-lg">
             {savingRanges ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -263,7 +263,7 @@ export function CardTabs({
             )}
           </Button>
         )}
-        <Button onClick={handleSaveValues} disabled={!canSave || saving} className="rounded-full">
+        <Button onClick={handleSaveValues} disabled={!canSave || saving} className="rounded-lg">
           {saving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
