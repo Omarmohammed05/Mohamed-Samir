@@ -9,6 +9,9 @@ docker compose -f docker-compose.base44.yml up -d
 ```
 - App at `http://localhost:3000` (preview port 3000)
 - Health check: `GET /en`
+- Sandbox defaults use `SHEETS_MODE=excel` so login works without Google credentials. With real mode, mock auth also reads users from Google Sheets; setting real mode without `GOOGLE_SHEET_ID` breaks login. Dashboard settings in `/run/base44/app.env` override the defaults.
+- `BASE44_PREVIEW_MODE=1` permits the exact preview origin for Next development assets. When unset, the original Next origin settings remain unchanged. Compose passes the flag through, never forces it.
+- Cards currently use `data/cards.json`, not Google Sheets tabs. Client components must import helpers from `lib/cards-types.ts`, never the filesystem-backed store.
 
 ## Modes
 - `AUTH_MODE=mock` (default): uses 5 predefined users in `config/mock-users.ts`, session signed with `JWT_SECRET`

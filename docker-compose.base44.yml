@@ -12,6 +12,7 @@ services:
       - /run/base44/app.env
     environment:
       - NODE_ENV=development
+      - BASE44_PREVIEW_MODE
       - BASE44_PUBLIC_HOST_SUFFIX=${BASE44_PUBLIC_HOST_SUFFIX:-}
       - WATCHPACK_POLLING=true
     command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npm run dev"]
