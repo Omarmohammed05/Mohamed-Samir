@@ -82,3 +82,41 @@ export async function getCardTabData(tabName: string): Promise<string[][]> {
   );
   return (res.data.values || []) as string[][];
 }
+
+/**
+ * Saves card data rows to a card tab in Google Sheets.
+ * Creates the tab if it doesn't exist yet.
+ */
+export async function saveCardData(cardId: string, dataRows: string[][]): Promise<void> {
+  const sheets = getSheetsClient();
+  const sheetId = process.env.GOOGLE_SHEET_ID!;
+
+  const header = ['Equipment', 'Tag No.', 'Unit', 'Description', 'Min', 'Norm', 'Max'];
+  const allRows = [header, ...dataRows];
+
+  // Try to clear the tab; create it if it doesn't exist
+  try {
+    await withRetry(() =>
+      sheets.spreadsheets.values.clear({
+        spreadsheetId: sheetId,
+        range: `${cardId}!A:Z`,
+      }),
+    );
+  } catch {
+    await withRetry(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: cardId } } }] },
+      }),
+    );
+  }
+
+  await withRetry(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${cardId}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: allRows },
+    }),
+  );
+}
