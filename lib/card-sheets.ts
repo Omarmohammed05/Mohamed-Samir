@@ -91,7 +91,7 @@ export async function saveCardData(cardId: string, dataRows: string[][]): Promis
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
 
-  const header = ['Equipment', 'Tag No.', 'Unit', 'Description', 'Min', 'Norm', 'Max'];
+  const header = ['Equipment', 'Tag No.', 'Unit', 'Description', 'Min', 'Norm', 'Max', 'Value'];
   const allRows = [header, ...dataRows];
 
   // Try to clear the tab; create it if it doesn't exist

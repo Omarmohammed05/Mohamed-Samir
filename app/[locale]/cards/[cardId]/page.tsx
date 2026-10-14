@@ -28,6 +28,7 @@ function mergeCardData(defaultTabs: EquipmentTab[], savedRows: string[][]): Equi
           min: saved[4] !== undefined ? saved[4] : row.min,
           norm: saved[5] !== undefined ? saved[5] : row.norm,
           max: saved[6] !== undefined ? saved[6] : row.max,
+          value: saved[7] !== undefined ? saved[7] : row.value,
         };
       }
       return row;

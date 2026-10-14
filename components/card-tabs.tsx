@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { EquipmentTab, CardInputRow } from '@/config/card-data';
+import type { EquipmentTab } from '@/config/card-data';
 
 export function CardTabs({ cardId, tabs }: { cardId: string; tabs: EquipmentTab[] }) {
   const t = useTranslations('cards');
@@ -13,18 +13,13 @@ export function CardTabs({ cardId, tabs }: { cardId: string; tabs: EquipmentTab[
   const [tabData, setTabData] = useState<EquipmentTab[]>(tabs);
   const [saving, setSaving] = useState(false);
 
-  function handleInputChange(
-    tabIndex: number,
-    rowIndex: number,
-    field: keyof Pick<CardInputRow, 'min' | 'norm' | 'max'>,
-    value: string,
-  ) {
+  function handleValueChange(tabIndex: number, rowIndex: number, value: string) {
     setTabData((prev) => {
       const next = [...prev];
       next[tabIndex] = {
         ...next[tabIndex],
         rows: next[tabIndex].rows.map((row, i) =>
-          i === rowIndex ? { ...row, [field]: value } : row,
+          i === rowIndex ? { ...row, value } : row,
         ),
       };
       return next;
@@ -37,7 +32,7 @@ export function CardTabs({ cardId, tabs }: { cardId: string; tabs: EquipmentTab[
       const allRows: string[][] = [];
       for (const tab of tabData) {
         for (const row of tab.rows) {
-          allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max]);
+          allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.value || '']);
         }
       }
       const res = await fetch('/api/sheets/card-data', {
@@ -110,6 +105,9 @@ export function CardTabs({ cardId, tabs }: { cardId: string; tabs: EquipmentTab[
               <th className="border border-black p-2 text-center bg-muted/30" colSpan={3}>
                 {t('operatingRange')}
               </th>
+              <th className="border border-black p-2 text-center bg-muted/30" rowSpan={2}>
+                {t('value')}
+              </th>
             </tr>
             <tr>
               <th className="border border-black p-2 text-center bg-muted/30">{t('min')}</th>
@@ -123,27 +121,14 @@ export function CardTabs({ cardId, tabs }: { cardId: string; tabs: EquipmentTab[
                 <td className="border border-black p-2 font-medium whitespace-nowrap">{row.tagNo}</td>
                 <td className="border border-black p-2 whitespace-nowrap">{row.unit}</td>
                 <td className="border border-black p-2">{row.description}</td>
+                <td className="border border-black p-2 text-center text-muted-foreground">{row.min}</td>
+                <td className="border border-black p-2 text-center text-muted-foreground">{row.norm}</td>
+                <td className="border border-black p-2 text-center text-muted-foreground">{row.max}</td>
                 <td className="border border-black p-1">
                   <input
                     type="text"
-                    value={row.min}
-                    onChange={(e) => handleInputChange(activeTab, i, 'min', e.target.value)}
-                    className="w-20 px-2 py-1 text-center bg-transparent border border-border rounded focus:border-primary focus:outline-none"
-                  />
-                </td>
-                <td className="border border-black p-1">
-                  <input
-                    type="text"
-                    value={row.norm}
-                    onChange={(e) => handleInputChange(activeTab, i, 'norm', e.target.value)}
-                    className="w-20 px-2 py-1 text-center bg-transparent border border-border rounded focus:border-primary focus:outline-none"
-                  />
-                </td>
-                <td className="border border-black p-1">
-                  <input
-                    type="text"
-                    value={row.max}
-                    onChange={(e) => handleInputChange(activeTab, i, 'max', e.target.value)}
+                    value={row.value || ''}
+                    onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
                     className="w-20 px-2 py-1 text-center bg-transparent border border-border rounded focus:border-primary focus:outline-none"
                   />
                 </td>

@@ -5,6 +5,7 @@ export type CardInputRow = {
   min: string;
   norm: string;
   max: string;
+  value?: string;
 };
 
 export type EquipmentTab = {
