@@ -17,9 +17,8 @@ function mergeCardData(
   return defaultTabs.map((tab) => ({
     ...tab,
     rows: tab.rows.map((row) => {
-      const key = `${tab.label}|${row.tagNo}`;
-      const savedConfig = sheetData.config.get(key);
-      const savedValue = sheetData.latestValues.get(key);
+      const savedConfig = sheetData.config.get(row.tagNo);
+      const savedValue = sheetData.latestValues.get(row.tagNo);
       return {
         ...row,
         min: savedConfig?.min ?? row.min,

@@ -181,7 +181,7 @@ export function CardTabs({
                   {row.description}
                 </div>
               </div>
-              {/* Row 2: Process Value + Unit + Min/Norm/Max */}
+              {/* Row 2: Process Value + Unit/Min/Norm/Max grouped */}
               <div className="flex gap-2 flex-wrap items-center">
                 <input
                   type="text"
@@ -193,11 +193,10 @@ export function CardTabs({
                       : 'bg-card border-border focus:border-primary'
                   }`}
                 />
-                <div className="px-4 py-2 rounded-full bg-card border border-border text-center text-sm min-w-[50px]">
-                  {row.unit}
-                </div>
-                {/* Min/Norm/Max stacked in a pill */}
-                <div className="px-3 py-1 rounded-full bg-card border border-border flex flex-col items-center gap-0.5 min-w-[55px]">
+                {/* Unit + Min/Norm/Max grouped together */}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-xs text-muted-foreground font-medium">{row.unit}</span>
+                  <div className="px-3 py-1 rounded-full bg-card border border-border flex flex-col items-center gap-0.5 min-w-[55px]">
                   {isAdmin ? (
                     <>
                       <input
@@ -226,6 +225,7 @@ export function CardTabs({
                       <span className="text-xs leading-tight">{row.max}</span>
                     </>
                   )}
+                  </div>
                 </div>
               </div>
             </div>

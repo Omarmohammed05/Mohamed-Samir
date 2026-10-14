@@ -30,7 +30,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
 
 /**
  * Ensures all 26 tabs (F01–F26) exist in the spreadsheet.
- * Returns the list of created and already-existing tab names.
  */
 export async function ensureCardTabs(): Promise<{
   created: string[];
@@ -83,8 +82,6 @@ export async function getCardTabData(tabName: string): Promise<string[][]> {
   return (res.data.values || []) as string[][];
 }
 
-const CARD_SHEET_HEADER = ['Date', 'User', 'Equipment', 'Tag No.', 'Unit', 'Description', 'Min', 'Norm', 'Max', 'ProcessValue'];
-
 async function ensureTabExists(tabName: string): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
@@ -102,51 +99,79 @@ async function ensureTabExists(tabName: string): Promise<void> {
   }
 }
 
-async function ensureHeader(tabName: string): Promise<void> {
-  const sheets = getSheetsClient();
-  const sheetId = process.env.GOOGLE_SHEET_ID!;
-  try {
-    const res = await withRetry(() =>
-      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tabName}!A1:J1` }),
-    );
-    if (res.data.values && res.data.values.length > 0) return;
-  } catch { /* tab might not exist yet */ }
-  await withRetry(() =>
-    sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: `${tabName}!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [CARD_SHEET_HEADER] },
-    }),
-  );
-}
-
 export type CardSheetData = {
   config: Map<string, { min: string; norm: string; max: string }>;
   latestValues: Map<string, string>;
 };
 
+/**
+ * Reads the matrix-layout sheet and returns config + latest submission values.
+ * Matrix layout:
+ *   Row 1: Equipment header (names in first column of each group)
+ *   Row 2: Tag No.  | tag1 | tag2 | ...
+ *   Row 3: Unit     | unit1| unit2| ...
+ *   Row 4: Description | desc1 | desc2 | ...
+ *   Row 5: Min      | min1 | min2 | ...
+ *   Row 6: Norm     | norm1| norm2| ...
+ *   Row 7: Max      | max1 | max2 | ...
+ *   Row 8: (blank)
+ *   Row 9: User | Date | Time | (header for entry section)
+ *   Row 10+: submission entries
+ */
 export async function readCardSheetData(cardId: string): Promise<CardSheetData> {
   const config = new Map<string, { min: string; norm: string; max: string }>();
   const submissions = new Map<string, Map<string, string>>();
 
   try {
     const allData = await getCardTabData(cardId);
-    for (let i = 1; i < allData.length; i++) {
-      const row = allData[i];
-      if (!row || row.length === 0) continue;
-      const date = row[0] || '';
-      const equipment = row[2] || '';
-      const tagNo = row[3] || '';
-      const key = `${equipment}|${tagNo}`;
-      if (date === 'CONFIG') {
-        config.set(key, { min: row[6] || '', norm: row[7] || '', max: row[8] || '' });
-      } else if (date) {
-        if (!submissions.has(date)) submissions.set(date, new Map());
-        submissions.get(date)!.set(key, row[9] || '');
+    if (allData.length < 7) return { config, latestValues: new Map() };
+
+    // Read tag numbers from row 2 (index 1), starting from column D (index 3)
+    const tagRow = allData[1] || [];
+    const tags: string[] = [];
+    for (let c = 3; c < tagRow.length; c++) {
+      tags.push(tagRow[c] || '');
+    }
+
+    // Read config from rows 5-7 (index 4-6): Min, Norm, Max
+    const minRow = allData[4] || [];
+    const normRow = allData[5] || [];
+    const maxRow = allData[6] || [];
+
+    for (let c = 0; c < tags.length; c++) {
+      const tagNo = tags[c];
+      if (!tagNo) continue;
+      config.set(tagNo, {
+        min: minRow[c + 3] || '',
+        norm: normRow[c + 3] || '',
+        max: maxRow[c + 3] || '',
+      });
+    }
+
+    // Read submissions (rows after User header)
+    const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
+    if (userHeaderIdx >= 0) {
+      for (let r = userHeaderIdx + 1; r < allData.length; r++) {
+        const row = allData[r];
+        if (!row || !row[0] || row[0] === 'User') continue;
+        const date = row[1] || '';
+        const time = row[2] || '';
+        const submissionKey = `${date} ${time}`;
+
+        if (!submissions.has(submissionKey)) {
+          submissions.set(submissionKey, new Map());
+        }
+
+        for (let c = 0; c < tags.length; c++) {
+          const tagNo = tags[c];
+          if (!tagNo) continue;
+          submissions.get(submissionKey)!.set(tagNo, row[c + 3] || '');
+        }
       }
     }
-  } catch { /* tab doesn't exist — return empty maps */ }
+  } catch {
+    /* tab doesn't exist — return empty maps */
+  }
 
   const sortedDates = Array.from(submissions.keys()).sort().reverse();
   const latestValues = sortedDates.length > 0
@@ -156,46 +181,81 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
   return { config, latestValues };
 }
 
-export async function saveCardSubmission(
-  cardId: string,
-  user: string,
-  rows: string[][],
-): Promise<void> {
-  const sheets = getSheetsClient();
-  const sheetId = process.env.GOOGLE_SHEET_ID!;
-  await ensureTabExists(cardId);
-  await ensureHeader(cardId);
+/**
+ * Builds the matrix layout rows from card data.
+ * rows: [[equipment, tagNo, unit, description, min, norm, max], ...]
+ */
+function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[][] {
+  // Group by equipment (preserve order)
+  const equipmentOrder: string[] = [];
+  const equipmentGroups: Map<string, string[][]> = new Map();
+  for (const row of rows) {
+    const eq = row[0];
+    if (!equipmentGroups.has(eq)) {
+      equipmentGroups.set(eq, []);
+      equipmentOrder.push(eq);
+    }
+    equipmentGroups.get(eq)!.push(row);
+  }
 
-  const now = new Date().toISOString();
-  const dataRows = rows.map((row) => [now, user, ...row]);
+  // Build header rows
+  const headerRow: string[] = ['', '', ''];
+  const tagNoRow: string[] = ['Tag No.', '', ''];
+  const unitRow: string[] = ['Unit', '', ''];
+  const descRow: string[] = ['Description', '', ''];
+  const minRow: string[] = ['Min', '', ''];
+  const normRow: string[] = ['Norm', '', ''];
+  const maxRow: string[] = ['Max', '', ''];
 
-  await withRetry(() =>
-    sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId,
-      range: `${cardId}!A:J`,
-      valueInputOption: 'RAW',
-      requestBody: { values: dataRows },
-    }),
-  );
+  for (const eq of equipmentOrder) {
+    const tags = equipmentGroups.get(eq)!;
+    headerRow.push(eq);
+    for (let i = 1; i < tags.length; i++) headerRow.push('');
+    for (const tag of tags) {
+      tagNoRow.push(tag[1]);
+      unitRow.push(tag[2]);
+      descRow.push(tag[3]);
+      minRow.push(tag[4]);
+      normRow.push(tag[5]);
+      maxRow.push(tag[6]);
+    }
+  }
 
-  await applyCardConditionalFormatting(cardId);
+  const blankRow: string[] = [];
+  const totalTags = rows.length;
+  const userHeaderRow: string[] = ['User', 'Date', 'Time'];
+  while (userHeaderRow.length < 3 + totalTags) userHeaderRow.push('');
+
+  return [
+    headerRow, tagNoRow, unitRow, descRow, minRow, normRow, maxRow,
+    blankRow, userHeaderRow, ...submissionRows,
+  ];
 }
 
+/**
+ * Saves card config (ranges) in matrix layout.
+ * rows: [[equipment, tagNo, unit, description, min, norm, max], ...]
+ */
 export async function saveCardConfig(cardId: string, rows: string[][]): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   await ensureTabExists(cardId);
-  await ensureHeader(cardId);
 
-  // Read existing data to preserve submissions
+  // Read existing submissions to preserve them
   let submissionRows: string[][] = [];
   try {
     const allData = await getCardTabData(cardId);
-    submissionRows = allData.slice(1).filter((row) => row[0] && row[0] !== 'CONFIG');
-  } catch { /* no existing data */ }
+    const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
+    if (userHeaderIdx >= 0) {
+      submissionRows = allData
+        .slice(userHeaderIdx + 1)
+        .filter((r) => r[0] && r[0] !== '');
+    }
+  } catch {
+    /* no existing data */
+  }
 
-  const configRows = rows.map((row) => ['CONFIG', '', ...row, '']);
-  const allRows = [CARD_SHEET_HEADER, ...configRows, ...submissionRows];
+  const allRows = buildMatrixRows(rows, submissionRows);
 
   await withRetry(() =>
     sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:Z` }),
@@ -210,6 +270,62 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   );
 }
 
+/**
+ * Saves a process value submission in matrix layout.
+ * rows: [[equipment, tagNo, unit, description, min, norm, max, processValue], ...]
+ * Appends a new row with user, date, time, and process values for each tag.
+ */
+export async function saveCardSubmission(
+  cardId: string,
+  user: string,
+  rows: string[][],
+): Promise<void> {
+  const sheets = getSheetsClient();
+  const sheetId = process.env.GOOGLE_SHEET_ID!;
+  await ensureTabExists(cardId);
+
+  // Check if the tab has the matrix header
+  let hasHeader = false;
+  try {
+    const data = await getCardTabData(cardId);
+    hasHeader = data.length > 1 && data[1]?.[0] === 'Tag No.';
+  } catch {
+    /* tab is empty */
+  }
+
+  if (!hasHeader) {
+    // Write the full matrix layout (config only, no submissions yet)
+    const configRows = rows.map((r) => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
+    await saveCardConfig(cardId, configRows);
+  }
+
+  // Append the submission row
+  const now = new Date();
+  const date = now.toISOString().split('T')[0];
+  const time = now.toTimeString().split(' ')[0];
+
+  const entryRow: string[] = [user, date, time];
+  for (const row of rows) {
+    entryRow.push(row[7] || '');
+  }
+
+  await withRetry(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: `${cardId}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [entryRow] },
+    }),
+  );
+
+  await applyCardConditionalFormatting(cardId);
+}
+
+/**
+ * Applies conditional formatting to highlight out-of-range process values.
+ * Process values are in columns D+ (index 3+), rows 10+ (index 9+).
+ * Min is in row 5, Max is in row 7 (same column as the process value).
+ */
 async function applyCardConditionalFormatting(cardId: string): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
@@ -229,13 +345,17 @@ async function applyCardConditionalFormatting(cardId: string): Promise<void> {
           addConditionalFormatRule: {
             index: 0,
             rule: {
-              ranges: [{ sheetId: tabId, startColumnIndex: 9, startRowIndex: 1 }],
+              ranges: [{
+                sheetId: tabId,
+                startColumnIndex: 3,
+                startRowIndex: 9,
+              }],
               booleanRule: {
                 condition: {
                   type: 'CUSTOM_FORMULA',
                   values: [{
                     userEnteredValue:
-                      '=AND(J2<>"",ISNUMBER(VALUE(J2)),OR(AND(G2<>"",ISNUMBER(VALUE(G2)),VALUE(J2)<VALUE(G2)),AND(I2<>"",ISNUMBER(VALUE(I2)),VALUE(J2)>VALUE(I2))))',
+                      '=AND(D10<>"",ISNUMBER(VALUE(D10)),OR(AND(D$5<>"",ISNUMBER(VALUE(D$5)),VALUE(D10)<VALUE(D$5)),AND(D$7<>"",ISNUMBER(VALUE(D$7)),VALUE(D10)>VALUE(D$7))))',
                   }],
                 },
                 format: {
