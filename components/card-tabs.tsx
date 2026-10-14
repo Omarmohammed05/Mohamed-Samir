@@ -174,11 +174,11 @@ export function CardTabs({
             <div key={i} className="flex flex-col gap-1.5">
               {/* Row 1: Tag No + Description */}
               <div className="flex gap-2">
-                <div className="flex-1 min-w-[90px] px-3 py-2 rounded-lg bg-card border border-border text-center text-sm font-medium flex items-center justify-center">
-                  {row.tagNo}
+                <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs font-medium overflow-hidden">
+                  <span className="block w-full break-words leading-tight">{row.tagNo}</span>
                 </div>
-                <div className="flex-[2] min-w-[130px] px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
-                  {row.description}
+                <div className="flex-[2] min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs overflow-hidden">
+                  <span className="block w-full break-words leading-tight">{row.description}</span>
                 </div>
               </div>
               {/* Row 2: Process Value + Unit + Min/Norm/Max */}
