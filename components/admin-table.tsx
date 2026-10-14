@@ -326,7 +326,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                   <tr key={`${entry.user}-${entry.date}-${i}`}>
                     <td className="w-10 border border-border bg-muted/30 px-2 py-2 text-center text-xs text-muted-foreground">
                       {entryRangeWarnings(entry).length > 0 && (
-                        <AlertTriangle className="inline h-3 w-3 text-amber-500" />
+                        <AlertTriangle className="inline h-3 w-3 text-amber-600 dark:text-[#F7F0C6]" />
                       )}
                       {current * PAGE_SIZE + i + 1}
                     </td>
@@ -340,7 +340,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                       return (
                         <td
                           key={f.key}
-                          className={`border border-border px-3 py-2 max-w-xs truncate ${oor ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                          className={`border border-border px-3 py-2 max-w-xs truncate ${oor ? 'bg-[#F7F0C6]/30 dark:bg-[#F7F0C6]/15' : ''}`}
                           title={oor ? t('entries.rangeWarning', { min: ranges[f.key].min, max: ranges[f.key].max }) : undefined}
                         >
                           {entry[f.key] || '—'}
@@ -380,7 +380,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                 <span className="font-medium">{formatDisplay(entry.date, locale)}</span>
                 <div className="flex items-center gap-2">
                   {entryRangeWarnings(entry).length > 0 && (
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-[#F7F0C6]" />
                   )}
                   <Badge variant="secondary" className="text-xs">{user?.name || entry.user}</Badge>
                 </div>
@@ -389,7 +389,7 @@ export function AdminTable({ entries, warnings, knownUsers, sheetsMode, sheetUrl
                 {FIELDS.map((f) => {
                   const oor = ranges[f.key] && isOutOfRange(entry[f.key], ranges[f.key]);
                   return (
-                    <div key={f.key} className={oor ? 'rounded bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5' : ''}>
+                    <div key={f.key} className={oor ? 'rounded bg-[#F7F0C6]/30 dark:bg-[#F7F0C6]/15 px-1 py-0.5' : ''}>
                       <dt className="text-xs font-medium text-muted-foreground">{f.label[locale]}</dt>
                       <dd className="text-sm break-words">{entry[f.key] || '—'}</dd>
                     </div>
