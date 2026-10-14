@@ -187,36 +187,36 @@ export function CardTabs({
                   type="text"
                   value={row.value || ''}
                   onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
-                  className={`w-24 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
+                  className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
                     outOfRange
                       ? 'border-red-500 bg-red-50 text-red-700'
                       : 'bg-card border-border focus:border-primary'
                   }`}
                 />
-                <div className="px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center min-w-[45px]">
+                <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
                   {row.unit}
                 </div>
                 {/* Min/Norm/Max stacked */}
-                <div className="px-2 py-1 rounded-lg bg-card border border-border flex flex-col items-center justify-center gap-0.5 min-w-[50px] ml-auto">
+                <div className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-card border border-border flex flex-col items-center justify-center gap-0.5">
                   {isAdmin ? (
                     <>
                       <input
                         type="text"
                         value={row.min}
                         onChange={(e) => handleRangeChange(activeTab, i, 'min', e.target.value)}
-                        className="w-10 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
+                        className="w-full max-w-[60px] text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
                       />
                       <input
                         type="text"
                         value={row.norm}
                         onChange={(e) => handleRangeChange(activeTab, i, 'norm', e.target.value)}
-                        className="w-10 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
+                        className="w-full max-w-[60px] text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
                       />
                       <input
                         type="text"
                         value={row.max}
                         onChange={(e) => handleRangeChange(activeTab, i, 'max', e.target.value)}
-                        className="w-10 text-center text-xs bg-transparent focus:outline-none"
+                        className="w-full max-w-[60px] text-center text-xs bg-transparent focus:outline-none"
                       />
                     </>
                   ) : (
