@@ -18,13 +18,12 @@ function mergeCardData(
     ...tab,
     rows: tab.rows.map((row) => {
       const savedConfig = sheetData.config.get(row.tagNo);
-      const savedValue = sheetData.latestValues.get(row.tagNo);
       return {
         ...row,
         min: savedConfig?.min ?? row.min,
         norm: savedConfig?.norm ?? row.norm,
         max: savedConfig?.max ?? row.max,
-        value: savedValue ?? row.value,
+        value: '',
       };
     }),
   }));
