@@ -135,146 +135,121 @@ export function CardTabs({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Equipment header */}
-      <div className="overflow-x-auto">
-        <table className="border-collapse w-full text-sm">
-          <tbody>
-            <tr>
-              <td className="border border-black p-2 font-bold bg-muted/50 whitespace-nowrap">
-                Equipment
-              </td>
-              {tabData.map((tab, i) => (
-                <td
-                  key={tab.id}
-                  className={`border border-black p-2 text-center cursor-pointer transition-colors min-w-[120px] ${
-                    activeTab === i ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
+      {/* Tab navigation — pill buttons */}
+      <div className="flex gap-2 flex-wrap justify-center">
+        {tabData.map((tab, i) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(i)}
+            className={`px-5 py-2 rounded-full font-bold text-sm transition-colors ${
+              activeTab === i
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card border border-border hover:bg-accent'
+            }`}
+          >
+            {tab.subLabels ? (
+              <span className="flex flex-col items-center gap-1">
+                <span>{tab.label}</span>
+                <span className="flex flex-col gap-0.5 items-center">
+                  {tab.subLabels.map((label) => (
+                    <span key={label} className="flex items-center gap-1 text-xs font-normal opacity-90">
+                      <input type="checkbox" className="h-3 w-3" />
+                      {label}
+                    </span>
+                  ))}
+                </span>
+              </span>
+            ) : (
+              tab.label
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Equipment rows in a rounded card container */}
+      <div className="rounded-3xl bg-primary/10 p-4 sm:p-6 flex flex-col gap-4">
+        {currentTab.rows.map((row, i) => {
+          const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
+          return (
+            <div key={i} className="flex flex-col gap-2">
+              {/* Row 1: Tag No + Description */}
+              <div className="flex gap-2 flex-wrap">
+                <div className="flex-1 min-w-[100px] px-4 py-2 rounded-full bg-card border border-border text-center text-sm font-medium">
+                  {row.tagNo}
+                </div>
+                <div className="flex-[2] min-w-[140px] px-4 py-2 rounded-full bg-card border border-border text-center text-sm">
+                  {row.description}
+                </div>
+              </div>
+              {/* Row 2: Process Value + Unit + Min/Norm/Max */}
+              <div className="flex gap-2 flex-wrap items-center">
+                <input
+                  type="text"
+                  value={row.value || ''}
+                  onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
+                  className={`w-28 px-4 py-2 rounded-full text-center text-sm border focus:outline-none min-w-[100px] ${
+                    outOfRange
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'bg-card border-border focus:border-primary'
                   }`}
-                  onClick={() => setActiveTab(i)}
-                >
-                  {tab.subLabels ? (
-                    <div className="flex flex-col gap-1">
-                      {tab.subLabels.map((label) => (
-                        <div key={label} className="flex items-center gap-2 justify-center">
-                          <span className="whitespace-nowrap">{label}</span>
-                          <input type="checkbox" className="h-3.5 w-3.5" />
-                        </div>
-                      ))}
-                    </div>
+                />
+                <div className="px-4 py-2 rounded-full bg-card border border-border text-center text-sm min-w-[50px]">
+                  {row.unit}
+                </div>
+                {/* Min/Norm/Max stacked in a pill */}
+                <div className="px-3 py-1 rounded-full bg-card border border-border flex flex-col items-center gap-0.5 min-w-[55px]">
+                  {isAdmin ? (
+                    <>
+                      <input
+                        type="text"
+                        value={row.min}
+                        onChange={(e) => handleRangeChange(activeTab, i, 'min', e.target.value)}
+                        className="w-12 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
+                      />
+                      <input
+                        type="text"
+                        value={row.norm}
+                        onChange={(e) => handleRangeChange(activeTab, i, 'norm', e.target.value)}
+                        className="w-12 text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
+                      />
+                      <input
+                        type="text"
+                        value={row.max}
+                        onChange={(e) => handleRangeChange(activeTab, i, 'max', e.target.value)}
+                        className="w-12 text-center text-xs bg-transparent focus:outline-none"
+                      />
+                    </>
                   ) : (
-                    tab.label
+                    <>
+                      <span className="text-xs leading-tight">{row.min}</span>
+                      <span className="text-xs leading-tight">{row.norm}</span>
+                      <span className="text-xs leading-tight">{row.max}</span>
+                    </>
                   )}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Out-of-range warning */}
       {outOfRangeCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+        <div className="flex items-center gap-2 rounded-full border border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{t('outOfRange')} ({outOfRangeCount})</span>
         </div>
       )}
 
-      {/* Input table */}
-      <div className="overflow-x-auto">
-        <table className="border-collapse w-full text-sm">
-          <thead>
-            <tr>
-              <th className="border border-black p-2 text-left bg-muted/30" rowSpan={2}>
-                {t('tagNo')}
-              </th>
-              <th className="border border-black p-2 text-left bg-muted/30" rowSpan={2}>
-                {t('unit')}
-              </th>
-              <th className="border border-black p-2 text-left bg-muted/30" rowSpan={2}>
-                {t('description')}
-              </th>
-              <th className="border border-black p-2 text-center bg-muted/30" colSpan={3}>
-                {t('operatingRange')}
-              </th>
-              <th className="border border-black p-2 text-center bg-primary/10" rowSpan={2}>
-                {t('processValue')}
-              </th>
-            </tr>
-            <tr>
-              <th className="border border-black p-2 text-center bg-muted/30">{t('min')}</th>
-              <th className="border border-black p-2 text-center bg-muted/30">{t('norm')}</th>
-              <th className="border border-black p-2 text-center bg-muted/30">{t('max')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentTab.rows.map((row, i) => {
-              const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
-              return (
-                <tr key={i}>
-                  <td className="border border-black p-2 font-medium whitespace-nowrap">{row.tagNo}</td>
-                  <td className="border border-black p-2 whitespace-nowrap">{row.unit}</td>
-                  <td className="border border-black p-2">{row.description}</td>
-                  {isAdmin ? (
-                    <>
-                      <td className="border border-black p-1">
-                        <input
-                          type="text"
-                          value={row.min}
-                          onChange={(e) => handleRangeChange(activeTab, i, 'min', e.target.value)}
-                          className="w-16 px-2 py-1 text-center bg-transparent border border-border rounded focus:border-primary focus:outline-none"
-                        />
-                      </td>
-                      <td className="border border-black p-1">
-                        <input
-                          type="text"
-                          value={row.norm}
-                          onChange={(e) => handleRangeChange(activeTab, i, 'norm', e.target.value)}
-                          className="w-16 px-2 py-1 text-center bg-transparent border border-border rounded focus:border-primary focus:outline-none"
-                        />
-                      </td>
-                      <td className="border border-black p-1">
-                        <input
-                          type="text"
-                          value={row.max}
-                          onChange={(e) => handleRangeChange(activeTab, i, 'max', e.target.value)}
-                          className="w-16 px-2 py-1 text-center bg-transparent border border-border rounded focus:border-primary focus:outline-none"
-                        />
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="border border-black p-2 text-center text-muted-foreground">{row.min}</td>
-                      <td className="border border-black p-2 text-center text-muted-foreground">{row.norm}</td>
-                      <td className="border border-black p-2 text-center text-muted-foreground">{row.max}</td>
-                    </>
-                  )}
-                  <td className="border border-black p-1">
-                    <input
-                      type="text"
-                      value={row.value || ''}
-                      onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
-                      className={`w-20 px-2 py-1 text-center bg-transparent border rounded focus:outline-none ${
-                        outOfRange
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-border focus:border-primary'
-                      }`}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
       {/* All tabs required notice */}
       {!canSave && (
-        <p className="text-sm text-muted-foreground">{t('allTabsRequired')}</p>
+        <p className="text-sm text-muted-foreground text-center">{t('allTabsRequired')}</p>
       )}
 
       {/* Save buttons */}
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-center gap-2">
         {isAdmin && (
-          <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges}>
+          <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges} className="rounded-full">
             {savingRanges ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -288,7 +263,7 @@ export function CardTabs({
             )}
           </Button>
         )}
-        <Button onClick={handleSaveValues} disabled={!canSave || saving}>
+        <Button onClick={handleSaveValues} disabled={!canSave || saving} className="rounded-full">
           {saving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
