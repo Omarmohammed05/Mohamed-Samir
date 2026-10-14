@@ -3,35 +3,30 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getSession } from '@/lib/auth';
 import { isValidCardId } from '@/config/cards';
 import { CARD_DATA, type EquipmentTab } from '@/config/card-data';
-import { getCardTabData } from '@/lib/card-sheets';
+import { readCardSheetData, type CardSheetData } from '@/lib/card-sheets';
 import { Header } from '@/components/header';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { CardTabs } from '@/components/card-tabs';
 
-function mergeCardData(defaultTabs: EquipmentTab[], savedRows: string[][]): EquipmentTab[] {
-  const savedMap = new Map<string, string[]>();
-  for (const row of savedRows) {
-    const key = `${row[0]}|${row[1]}`;
-    savedMap.set(key, row);
-  }
-
+function mergeCardData(
+  defaultTabs: EquipmentTab[],
+  sheetData: CardSheetData,
+): EquipmentTab[] {
   return defaultTabs.map((tab) => ({
     ...tab,
     rows: tab.rows.map((row) => {
       const key = `${tab.label}|${row.tagNo}`;
-      const saved = savedMap.get(key);
-      if (saved) {
-        return {
-          ...row,
-          min: saved[4] !== undefined ? saved[4] : row.min,
-          norm: saved[5] !== undefined ? saved[5] : row.norm,
-          max: saved[6] !== undefined ? saved[6] : row.max,
-          value: saved[7] !== undefined ? saved[7] : row.value,
-        };
-      }
-      return row;
+      const savedConfig = sheetData.config.get(key);
+      const savedValue = sheetData.latestValues.get(key);
+      return {
+        ...row,
+        min: savedConfig?.min ?? row.min,
+        norm: savedConfig?.norm ?? row.norm,
+        max: savedConfig?.max ?? row.max,
+        value: savedValue ?? row.value,
+      };
     }),
   }));
 }
@@ -55,16 +50,14 @@ export default async function CardDetailPage({
 
   const defaultTabs = CARD_DATA[id] || [];
 
-  // Try to read saved data from Google Sheets
-  let savedRows: string[][] = [];
+  let sheetData: CardSheetData = { config: new Map(), latestValues: new Map() };
   try {
-    const allData = await getCardTabData(id);
-    savedRows = allData.slice(1).filter((row) => row.length > 0 && row.some((c) => c));
+    sheetData = await readCardSheetData(id);
   } catch {
     // Tab doesn't exist or Sheets API not available — use defaults
   }
 
-  const tabs = mergeCardData(defaultTabs, savedRows);
+  const tabs = mergeCardData(defaultTabs, sheetData);
 
   return (
     <div className="min-h-screen bg-background">
@@ -79,7 +72,7 @@ export default async function CardDetailPage({
           <h1 className="text-2xl font-bold tracking-tight">{id}</h1>
         </div>
         {tabs.length > 0 ? (
-          <CardTabs cardId={id} tabs={tabs} />
+          <CardTabs cardId={id} tabs={tabs} role={session.role} userEmail={session.email} />
         ) : (
           <div className="rounded-xl border border-border bg-card p-8 flex flex-col items-center justify-center gap-4 min-h-[300px]">
             <p className="text-muted-foreground text-center">{t('cards.cardContent')}</p>
