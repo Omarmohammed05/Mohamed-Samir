@@ -37,16 +37,21 @@ export function Header({ session }: { session: Session }) {
         </div>
 
         <div className="flex items-center gap-1">
-          {session.role === 'admin' && (
-            <nav className="flex items-center gap-1 me-2">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/entries')}>
-                {t('nav.myEntries')}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => router.push('/admin')}>
-                {t('nav.admin')}
-              </Button>
-            </nav>
-          )}
+          <nav className="flex items-center gap-1 me-2">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/cards')}>
+              {t('nav.cards')}
+            </Button>
+            {session.role === 'admin' && (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/entries')}>
+                  {t('nav.myEntries')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/admin')}>
+                  {t('nav.admin')}
+                </Button>
+              </>
+            )}
+          </nav>
           <LanguageSwitcher />
           <AccessibilitySettings />
           <ThemeToggle />
