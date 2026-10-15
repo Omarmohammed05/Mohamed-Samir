@@ -6,6 +6,9 @@ export type CardInputRow = {
   norm: string;
   max: string;
   value?: string;
+  /** Sub-label (from the tab's `subLabels`) this row belongs to.
+   *  Rows without a group are always visible (shared equipment). */
+  group?: string;
 };
 
 export type EquipmentTab = {
@@ -32,16 +35,26 @@ export const CARD_DATA: Record<string, EquipmentTab[]> = {
       label: '121P002A/B',
       subLabels: ['121P002A', '121P002B'],
       rows: [
+        // Shared (A/B/C suction) — always visible
         { tagNo: 'PI 121201/121204/121303', unit: 'barg', description: 'Amm. Pumps A/B/C suction press.', min: '18', norm: '24', max: '28' },
-        { tagNo: 'PI 4121254/4121258', unit: 'barg', description: 'Amm. Pumps A/B disch. press.', min: '145', norm: '162.57', max: '175' },
-        { tagNo: 'PDY 121203/4121203', unit: 'barg', description: 'Distance to sat. Point', min: '10', norm: '12', max: '20' },
-        { tagNo: 'II 121961/121962', unit: 'A', description: 'Main motor current', min: '30', norm: '', max: '60' },
-        { tagNo: 'SIC 121950/121951', unit: 'RPM', description: 'Pump Speed', min: '85', norm: '110', max: '142' },
-        { tagNo: 'TI 121021/121031', unit: 'ºC', description: 'Torque conv. Temp.', min: '60', norm: '65', max: '90' },
-        { tagNo: 'TI 121022/121032', unit: 'ºC', description: 'Gearbox temp.', min: '15', norm: '38', max: '70' },
-        { tagNo: 'TI 121023/121033', unit: 'ºC', description: 'Crank shaft oil temp.', min: '15', norm: '35', max: '65' },
-        { tagNo: 'PI 121211', unit: 'barg', description: 'Pump A Crank shaft oil press.', min: '4', norm: '9', max: '10' },
-        { tagNo: 'PI 121221', unit: 'barg', description: 'Pump B Crank shaft oil press.', min: '4', norm: '9', max: '10' },
+        // Pump A containers
+        { tagNo: 'PI 4121254', unit: 'barg', description: 'Amm. Pump A disch. press.', min: '145', norm: '162.57', max: '175', group: '121P002A' },
+        { tagNo: 'PDY 121203', unit: 'barg', description: 'Distance to sat. Point', min: '10', norm: '12', max: '20', group: '121P002A' },
+        { tagNo: 'II 121961', unit: 'A', description: 'Main motor current', min: '30', norm: '', max: '60', group: '121P002A' },
+        { tagNo: 'SIC 121950', unit: 'RPM', description: 'Pump Speed', min: '85', norm: '110', max: '142', group: '121P002A' },
+        { tagNo: 'TI 121021', unit: 'ºC', description: 'Torque conv. Temp.', min: '60', norm: '65', max: '90', group: '121P002A' },
+        { tagNo: 'TI 121022', unit: 'ºC', description: 'Gearbox temp.', min: '15', norm: '38', max: '70', group: '121P002A' },
+        { tagNo: 'TI 121023', unit: 'ºC', description: 'Crank shaft oil temp.', min: '15', norm: '35', max: '65', group: '121P002A' },
+        { tagNo: 'PI 121211', unit: 'barg', description: 'Pump A Crank shaft oil press.', min: '4', norm: '9', max: '10', group: '121P002A' },
+        // Pump B containers
+        { tagNo: 'PI 4121258', unit: 'barg', description: 'Amm. Pump B disch. press.', min: '145', norm: '162.57', max: '175', group: '121P002B' },
+        { tagNo: 'PDY 121206', unit: 'barg', description: 'Distance to sat. Point', min: '10', norm: '12', max: '20', group: '121P002B' },
+        { tagNo: 'II 121962', unit: 'A', description: 'Main motor current', min: '30', norm: '', max: '60', group: '121P002B' },
+        { tagNo: 'SIC 121951', unit: 'RPM', description: 'Pump Speed', min: '85', norm: '110', max: '142', group: '121P002B' },
+        { tagNo: 'TI 121031', unit: 'ºC', description: 'Torque conv. Temp.', min: '60', norm: '65', max: '90', group: '121P002B' },
+        { tagNo: 'TI 121032', unit: 'ºC', description: 'Gearbox temp.', min: '15', norm: '38', max: '70', group: '121P002B' },
+        { tagNo: 'TI 121033', unit: 'ºC', description: 'Crank shaft oil temp.', min: '15', norm: '35', max: '65', group: '121P002B' },
+        { tagNo: 'PI 121221', unit: 'barg', description: 'Pump B Crank shaft oil press.', min: '4', norm: '9', max: '10', group: '121P002B' },
       ],
     },
     {

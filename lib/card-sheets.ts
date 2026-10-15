@@ -243,15 +243,27 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   await ensureTabExists(cardId);
 
-  // Read existing submissions to preserve them
+  // Read existing submissions and remap their values by Tag No. so they stay
+  // aligned when the tag set changes (e.g. combined A/B tags split apart).
   let submissionRows: string[][] = [];
   try {
     const allData = await getCardTabData(cardId);
+    const oldTagRow = allData[1] || [];
+    const oldTags: string[] = [];
+    for (let c = 3; c < oldTagRow.length; c++) oldTags.push(oldTagRow[c] || '');
+
     const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
     if (userHeaderIdx >= 0) {
-      submissionRows = allData
-        .slice(userHeaderIdx + 1)
-        .filter((r) => r[0] && r[0] !== '');
+      for (const r of allData.slice(userHeaderIdx + 1)) {
+        if (!r[0]) continue;
+        const valuesByTag = new Map<string, string>();
+        for (let c = 0; c < oldTags.length; c++) {
+          if (oldTags[c]) valuesByTag.set(oldTags[c], r[c + 3] || '');
+        }
+        const newRow = [r[0], r[1] || '', r[2] || ''];
+        for (const row of rows) newRow.push(valuesByTag.get(row[1]) ?? '');
+        submissionRows.push(newRow);
+      }
     }
   } catch {
     /* no existing data */
@@ -286,17 +298,27 @@ export async function saveCardSubmission(
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   await ensureTabExists(cardId);
 
-  // Check if the tab has the matrix header
-  let hasHeader = false;
+  // Check if the tab's tag columns match the incoming rows; if not, rewrite the
+  // matrix layout (existing submissions are remapped by Tag No.)
+  let layoutMatches = false;
   try {
     const data = await getCardTabData(cardId);
-    hasHeader = data.length > 1 && data[1]?.[0] === 'Tag No.';
+    if (data.length > 1 && data[1]?.[0] === 'Tag No.') {
+      const tagRow = data[1] || [];
+      const sheetTags: string[] = [];
+      for (let c = 3; c < tagRow.length; c++) sheetTags.push((tagRow[c] || '').trim());
+      while (sheetTags.length > 0 && sheetTags[sheetTags.length - 1] === '') sheetTags.pop();
+      const clientTags = rows.map((r) => (r[1] || '').trim());
+      layoutMatches =
+        sheetTags.length === clientTags.length &&
+        sheetTags.every((tag, i) => tag === clientTags[i]);
+    }
   } catch {
     /* tab is empty */
   }
 
-  if (!hasHeader) {
-    // Write the full matrix layout (config only, no submissions yet)
+  if (!layoutMatches) {
+    // Write the full matrix layout (existing submissions are preserved)
     const configRows = rows.map((r) => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     await saveCardConfig(cardId, configRows);
   }
