@@ -4,6 +4,7 @@
  */
 import { google } from 'googleapis';
 import { invalidateAll } from './cache';
+import { nowCairoISO } from './date';
 
 export type AuditAction = 'create' | 'edit' | 'delete' | 'restore';
 
@@ -22,7 +23,7 @@ const AUDIT_HEADER = ['Timestamp', 'Actor', 'Action', 'TargetUser', 'TargetDate'
 const auditLog: AuditRecord[] = [];
 
 export function addAuditRecord(record: Omit<AuditRecord, 'timestamp'>): void {
-  const entry: AuditRecord = { ...record, timestamp: new Date().toISOString() };
+  const entry: AuditRecord = { ...record, timestamp: nowCairoISO() };
   auditLog.push(entry);
   // Keep in-memory log bounded
   if (auditLog.length > 500) auditLog.splice(0, auditLog.length - 500);

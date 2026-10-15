@@ -1,8 +1,7 @@
 /**
- * Google Sheets conditional formatting — mirrors the admin-table UI's
- * out-of-range highlighting. Cells in the Entries tab get an amber background
- * (#FEF3C7) and dark amber text (#92400E) when their numeric value falls outside
- * the configured field range.
+ * Google Sheets conditional formatting — out-of-range highlighting shared by
+ * the Entries tab and the card tabs. Out-of-range cells get the warning
+ * palette: pale-yellow background (#F5EAC2) and brown text (#8B5A2B).
  *
  * Columns in the Entries tab:
  *   C = Task (a), D = Progress (b), E = Blockers (c), F = Notes (d)
@@ -17,8 +16,10 @@ import { FIELDS } from '@/config/fields';
 /** Map field keys to their column letter in the Entries sheet. */
 const FIELD_COLUMN: Record<string, string> = { a: 'C', b: 'D', c: 'E', d: 'F' };
 
-/** Amber background for out-of-range cells — visible enough in Google Sheets. */
-const AMBER_BG = { red: 0.996, green: 0.953, blue: 0.780 }; // #FEF3C7 (amber-100)
+/** Warning palette for out-of-range cells. Note: conditional-format rules
+ *  only support background/foreground colors (no borders) in the Sheets API. */
+export const WARNING_BG = { red: 245 / 255, green: 234 / 255, blue: 194 / 255 }; // #F5EAC2
+export const WARNING_FG = { red: 139 / 255, green: 90 / 255, blue: 43 / 255 }; // #8B5A2B
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
@@ -49,8 +50,9 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
 
 /**
  * Apply (or refresh) conditional-formatting rules on the Entries tab so that
- * out-of-range numeric cells get an amber background and dark amber text. Removes any existing
- * rules on the data columns first, then adds the new ones.
+ * out-of-range numeric cells get the warning palette (pale-yellow background,
+ * blue border, brown text). Removes any existing rules on the data columns
+ * first, then adds the new ones.
  *
  * Only runs in real mode (SHEETS_MODE=real). No-op otherwise.
  */
@@ -93,10 +95,8 @@ export async function applyConditionalFormatting(ranges: FieldRanges): Promise<v
       booleanRule: {
         condition: { type: 'CUSTOM_FORMULA' as const, values: [{ userEnteredValue: formula }] },
         format: {
-          backgroundColor: AMBER_BG,
-          textFormat: {
-            foregroundColor: { red: 146 / 255, green: 64 / 255, blue: 14 / 255 }, // #92400E (amber-800)
-          },
+          backgroundColor: WARNING_BG,
+          textFormat: { foregroundColor: WARNING_FG },
         },
       },
     };

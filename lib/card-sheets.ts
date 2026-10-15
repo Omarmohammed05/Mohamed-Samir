@@ -1,4 +1,6 @@
 import { google } from 'googleapis';
+import { nowCairoDateTime } from './date';
+import { WARNING_BG, WARNING_FG } from './conditional-formatting';
 import { CARD_TABS } from '@/config/cards';
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
@@ -299,10 +301,8 @@ export async function saveCardSubmission(
     await saveCardConfig(cardId, configRows);
   }
 
-  // Append the submission row
-  const now = new Date();
-  const date = now.toISOString().split('T')[0];
-  const time = now.toTimeString().split(' ')[0];
+  // Append the submission row — Date/Time columns are written in Egypt time
+  const { date, time } = nowCairoDateTime();
 
   const entryRow: string[] = [user, date, time];
   for (const row of rows) {
@@ -325,8 +325,11 @@ export async function saveCardSubmission(
  * Applies conditional formatting to highlight out-of-range process values.
  * Process values are in columns D+ (index 3+), rows 10+ (index 9+).
  * Min is in row 5, Max is in row 7 (same column as the process value).
+ * Out-of-range cells get the warning palette (pale-yellow background, brown
+ * text). Existing rules are removed first so re-applying is idempotent and
+ * stale colors never linger.
  */
-async function applyCardConditionalFormatting(cardId: string): Promise<void> {
+export async function applyCardConditionalFormatting(cardId: string): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
 
@@ -337,36 +340,47 @@ async function applyCardConditionalFormatting(cardId: string): Promise<void> {
   if (!sheet || sheet.properties?.sheetId === undefined) return;
   const tabId = sheet.properties.sheetId;
 
+  const existingCF = (sheet as unknown as { conditionalFormats?: unknown[] }).conditionalFormats;
+
+  const requests: Record<string, unknown>[] = [];
+
+  // Delete existing conditional-format rules (highest index first)
+  if (Array.isArray(existingCF)) {
+    for (let i = existingCF.length - 1; i >= 0; i--) {
+      requests.push({ deleteConditionalFormatRule: { sheetId: tabId, index: i } });
+    }
+  }
+
+  requests.push({
+    addConditionalFormatRule: {
+      index: 0,
+      rule: {
+        ranges: [{
+          sheetId: tabId,
+          startColumnIndex: 3,
+          startRowIndex: 9,
+        }],
+        booleanRule: {
+          condition: {
+            type: 'CUSTOM_FORMULA',
+            values: [{
+              userEnteredValue:
+                '=AND(D10<>"",ISNUMBER(VALUE(D10)),OR(AND(D$5<>"",ISNUMBER(VALUE(D$5)),VALUE(D10)<VALUE(D$5)),AND(D$7<>"",ISNUMBER(VALUE(D$7)),VALUE(D10)>VALUE(D$7))))',
+            }],
+          },
+          format: {
+            backgroundColor: WARNING_BG,
+            textFormat: { foregroundColor: WARNING_FG },
+          },
+        },
+      },
+    },
+  });
+
   await withRetry(() =>
     sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
-      requestBody: {
-        requests: [{
-          addConditionalFormatRule: {
-            index: 0,
-            rule: {
-              ranges: [{
-                sheetId: tabId,
-                startColumnIndex: 3,
-                startRowIndex: 9,
-              }],
-              booleanRule: {
-                condition: {
-                  type: 'CUSTOM_FORMULA',
-                  values: [{
-                    userEnteredValue:
-                      '=AND(D10<>"",ISNUMBER(VALUE(D10)),OR(AND(D$5<>"",ISNUMBER(VALUE(D$5)),VALUE(D10)<VALUE(D$5)),AND(D$7<>"",ISNUMBER(VALUE(D$7)),VALUE(D10)>VALUE(D$7))))',
-                  }],
-                },
-                format: {
-                  backgroundColor: { red: 1, green: 0.65, blue: 0 },
-                  textFormat: { foregroundColor: { red: 0.55, green: 0.27, blue: 0 } },
-                },
-              },
-            },
-          },
-        }],
-      },
+      requestBody: { requests },
     }),
   );
 }
