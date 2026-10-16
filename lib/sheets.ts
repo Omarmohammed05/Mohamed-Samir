@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { normalizeDate } from './date';
+import { normalizeDate, nowCairoISO } from './date';
 import {
   listAll, listForUser, getEntry, upsertEntry, deleteEntry,
   listDeleted, restoreEntry, type Entry,
@@ -142,7 +142,7 @@ async function logAudit(
 ): Promise<void> {
   const record = { actor, action, targetUser, targetDate, details };
   addAuditRecord(record);
-  await appendAuditToSheet({ ...record, timestamp: new Date().toISOString() });
+  await appendAuditToSheet({ ...record, timestamp: nowCairoISO() });
 }
 
 export async function upsertEntryRow(
@@ -151,7 +151,7 @@ export async function upsertEntryRow(
   data: { a: string; b: string; c: string; d: string },
   actor?: string,
 ): Promise<Entry> {
-  const updatedAt = new Date().toISOString();
+  const updatedAt = nowCairoISO();
   invalidateAll();
   const actorEmail = actor || user;
   const userLower = user.toLowerCase();
@@ -249,7 +249,7 @@ export async function deleteEntryRow(user: string, date: string, actor?: string)
       const deletedRow = [
         row[0] || date, row[1] || userLower, row[2] || '', row[3] || '',
         row[4] || '', row[5] || '', row[6] || '',
-        new Date().toISOString(), actorEmail,
+        nowCairoISO(), actorEmail,
       ];
       await ensureDeletedSheet(sheets, sheetId);
       await withRetry(() =>

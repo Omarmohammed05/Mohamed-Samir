@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { type, cardId, user, rows } = await req.json();
+    const { type, cardId, user, rows, filter } = await req.json();
     if (!cardId || !Array.isArray(rows)) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       }
       await saveCardConfig(cardId, rows);
     } else {
-      await saveCardSubmission(cardId, user || session.email, rows);
+      await saveCardSubmission(cardId, user || session.email, rows, filter || '');
     }
 
     return NextResponse.json({ success: true });

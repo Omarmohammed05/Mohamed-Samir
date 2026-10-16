@@ -1,4 +1,6 @@
 import { google } from 'googleapis';
+import { nowCairoDateTime } from './date';
+import { WARNING_BG, WARNING_FG } from './conditional-formatting';
 import { CARD_TABS } from '@/config/cards';
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
@@ -77,7 +79,7 @@ export async function getCardTabData(tabName: string): Promise<string[][]> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   const res = await withRetry(() =>
-    sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tabName}!A:Z` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tabName}!A:ZZ` }),
   );
   return (res.data.values || []) as string[][];
 }
@@ -223,8 +225,10 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
 
   const blankRow: string[] = [];
   const totalTags = rows.length;
+  // 'Filter' records which A/B checkboxes were checked for each submission
   const userHeaderRow: string[] = ['User', 'Date', 'Time'];
   while (userHeaderRow.length < 3 + totalTags) userHeaderRow.push('');
+  userHeaderRow.push('Filter');
 
   return [
     headerRow, tagNoRow, unitRow, descRow, minRow, normRow, maxRow,
@@ -241,15 +245,33 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   await ensureTabExists(cardId);
 
-  // Read existing submissions to preserve them
+  // Read existing submissions and remap their values by Tag No. so they stay
+  // aligned when the tag set changes (e.g. combined A/B tags split apart).
   let submissionRows: string[][] = [];
   try {
     const allData = await getCardTabData(cardId);
+    const oldTagRow = allData[1] || [];
+    const oldTags: string[] = [];
+    for (let c = 3; c < oldTagRow.length; c++) oldTags.push(oldTagRow[c] || '');
+
     const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
     if (userHeaderIdx >= 0) {
-      submissionRows = allData
-        .slice(userHeaderIdx + 1)
-        .filter((r) => r[0] && r[0] !== '');
+      // Trim trailing blank tag columns to locate the old Filter cell
+      const oldTagCount = [...oldTags].reduce(
+        (n, t, i) => (t ? i + 1 : n),
+        0,
+      );
+      for (const r of allData.slice(userHeaderIdx + 1)) {
+        if (!r[0]) continue;
+        const valuesByTag = new Map<string, string>();
+        for (let c = 0; c < oldTags.length; c++) {
+          if (oldTags[c]) valuesByTag.set(oldTags[c], r[c + 3] || '');
+        }
+        const newRow = [r[0], r[1] || '', r[2] || ''];
+        for (const row of rows) newRow.push(valuesByTag.get(row[1]) ?? '');
+        newRow.push(r[3 + oldTagCount] || ''); // Filter cell
+        submissionRows.push(newRow);
+      }
     }
   } catch {
     /* no existing data */
@@ -258,7 +280,7 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   const allRows = buildMatrixRows(rows, submissionRows);
 
   await withRetry(() =>
-    sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:Z` }),
+    sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:ZZ` }),
   );
   await withRetry(() =>
     sheets.spreadsheets.values.update({
@@ -279,40 +301,67 @@ export async function saveCardSubmission(
   cardId: string,
   user: string,
   rows: string[][],
+  filter = '',
 ): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   await ensureTabExists(cardId);
 
-  // Check if the tab has the matrix header
-  let hasHeader = false;
+  // Check if the tab's tag columns match the incoming rows; if not, rewrite the
+  // matrix layout (existing submissions are remapped by Tag No.)
+  let layoutMatches = false;
   try {
     const data = await getCardTabData(cardId);
-    hasHeader = data.length > 1 && data[1]?.[0] === 'Tag No.';
+    if (data.length > 1 && data[1]?.[0] === 'Tag No.') {
+      const tagRow = data[1] || [];
+      const sheetTags: string[] = [];
+      for (let c = 3; c < tagRow.length; c++) sheetTags.push((tagRow[c] || '').trim());
+      while (sheetTags.length > 0 && sheetTags[sheetTags.length - 1] === '') sheetTags.pop();
+      const clientTags = rows.map((r) => (r[1] || '').trim());
+      layoutMatches =
+        sheetTags.length === clientTags.length &&
+        sheetTags.every((tag, i) => tag === clientTags[i]);
+    }
   } catch {
     /* tab is empty */
   }
 
-  if (!hasHeader) {
-    // Write the full matrix layout (config only, no submissions yet)
+  if (!layoutMatches) {
+    // Write the full matrix layout (existing submissions are preserved)
     const configRows = rows.map((r) => [r[0], r[1], r[2], r[3], r[4], r[5], r[6]]);
     await saveCardConfig(cardId, configRows);
   }
 
-  // Append the submission row
-  const now = new Date();
-  const date = now.toISOString().split('T')[0];
-  const time = now.toTimeString().split(' ')[0];
+  // Append the submission row — Date/Time columns are written in Egypt time.
+  // The row is written explicitly after the last submission rather than via
+  // values.append, whose table detection misplaces rows on this matrix layout.
+  const { date, time } = nowCairoDateTime();
 
   const entryRow: string[] = [user, date, time];
   for (const row of rows) {
     entryRow.push(row[7] || '');
   }
+  entryRow.push(filter);
+
+  let nextRow = 10; // default: first row after the header block
+  try {
+    const data = await getCardTabData(cardId);
+    const userHeaderIdx = data.findIndex((r) => r[0] === 'User');
+    if (userHeaderIdx >= 0) {
+      let last = userHeaderIdx;
+      for (let i = userHeaderIdx + 1; i < data.length; i++) {
+        if (data[i]?.[0]) last = i;
+      }
+      nextRow = last + 2; // 0-based index -> 1-based row after it
+    }
+  } catch {
+    /* keep default */
+  }
 
   await withRetry(() =>
-    sheets.spreadsheets.values.append({
+    sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${cardId}!A:Z`,
+      range: `${cardId}!A${nextRow}`,
       valueInputOption: 'RAW',
       requestBody: { values: [entryRow] },
     }),
@@ -325,8 +374,11 @@ export async function saveCardSubmission(
  * Applies conditional formatting to highlight out-of-range process values.
  * Process values are in columns D+ (index 3+), rows 10+ (index 9+).
  * Min is in row 5, Max is in row 7 (same column as the process value).
+ * Out-of-range cells get the warning palette (pale-yellow background, brown
+ * text). Existing rules are removed first so re-applying is idempotent and
+ * stale colors never linger.
  */
-async function applyCardConditionalFormatting(cardId: string): Promise<void> {
+export async function applyCardConditionalFormatting(cardId: string): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
 
@@ -337,36 +389,47 @@ async function applyCardConditionalFormatting(cardId: string): Promise<void> {
   if (!sheet || sheet.properties?.sheetId === undefined) return;
   const tabId = sheet.properties.sheetId;
 
+  const existingCF = (sheet as unknown as { conditionalFormats?: unknown[] }).conditionalFormats;
+
+  const requests: Record<string, unknown>[] = [];
+
+  // Delete existing conditional-format rules (highest index first)
+  if (Array.isArray(existingCF)) {
+    for (let i = existingCF.length - 1; i >= 0; i--) {
+      requests.push({ deleteConditionalFormatRule: { sheetId: tabId, index: i } });
+    }
+  }
+
+  requests.push({
+    addConditionalFormatRule: {
+      index: 0,
+      rule: {
+        ranges: [{
+          sheetId: tabId,
+          startColumnIndex: 3,
+          startRowIndex: 9,
+        }],
+        booleanRule: {
+          condition: {
+            type: 'CUSTOM_FORMULA',
+            values: [{
+              userEnteredValue:
+                '=AND(D10<>"",ISNUMBER(VALUE(D10)),OR(AND(D$5<>"",ISNUMBER(VALUE(D$5)),VALUE(D10)<VALUE(D$5)),AND(D$7<>"",ISNUMBER(VALUE(D$7)),VALUE(D10)>VALUE(D$7))))',
+            }],
+          },
+          format: {
+            backgroundColor: WARNING_BG,
+            textFormat: { foregroundColor: WARNING_FG },
+          },
+        },
+      },
+    },
+  });
+
   await withRetry(() =>
     sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
-      requestBody: {
-        requests: [{
-          addConditionalFormatRule: {
-            index: 0,
-            rule: {
-              ranges: [{
-                sheetId: tabId,
-                startColumnIndex: 3,
-                startRowIndex: 9,
-              }],
-              booleanRule: {
-                condition: {
-                  type: 'CUSTOM_FORMULA',
-                  values: [{
-                    userEnteredValue:
-                      '=AND(D10<>"",ISNUMBER(VALUE(D10)),OR(AND(D$5<>"",ISNUMBER(VALUE(D$5)),VALUE(D10)<VALUE(D$5)),AND(D$7<>"",ISNUMBER(VALUE(D$7)),VALUE(D10)>VALUE(D$7))))',
-                  }],
-                },
-                format: {
-                  backgroundColor: { red: 1, green: 0.65, blue: 0 },
-                  textFormat: { foregroundColor: { red: 0.55, green: 0.27, blue: 0 } },
-                },
-              },
-            },
-          },
-        }],
-      },
+      requestBody: { requests },
     }),
   );
 }
