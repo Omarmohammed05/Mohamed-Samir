@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'U.P. LOG SHEET',
     short_name: 'U.P. LOG SHEET',
-    description: 'U.P. LOG SHEET — submit, track and review operational log entries.',
+    description: 'U.P. LOG SHEET — submit, track and review your daily equipment readings.',
     start_url: '/en',
     scope: '/',
     display: 'standalone',

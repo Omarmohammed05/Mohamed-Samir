@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { toast } from 'sonner';
-import { Search, Trash2, Pencil, Loader2, AlertTriangle } from 'lucide-react';
+import { Search, Trash2, Pencil, Loader2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { isOutOfRange, type FieldRange } from '@/lib/range-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
 import { FIELDS } from '@/config/fields';
-import { formatDisplay } from '@/lib/date';
+import { formatDisplay, formatTimestamp } from '@/lib/date';
 import type { Entry } from '@/lib/mock-store';
 
 const PAGE_SIZE = 5;
@@ -35,6 +35,8 @@ export function EntriesList({ initialEntries, todayDate }: { initialEntries: Ent
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [ranges, setRanges] = useState<Record<string, FieldRange>>({});
+  // Per-entry expand state (keyed by entry date) — expanded shows all entry data
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch('/api/settings')
@@ -141,13 +143,30 @@ export function EntriesList({ initialEntries, todayDate }: { initialEntries: Ent
       <div className="flex flex-col gap-3">
         {pageItems.map((entry) => (
           <Card key={entry.date} className="animate-fade-in overflow-hidden">
-            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <time className="text-sm font-medium text-primary">
-                    {formatDisplay(entry.date, locale)}
-                  </time>
+            <div className="p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <time className="text-sm font-medium text-primary">
+                  {formatDisplay(entry.date, locale)}
+                </time>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setExpanded((p) => ({ ...p, [entry.date]: !p[entry.date] }))}
+                    aria-label={expanded[entry.date] ? t('entries.collapse') : t('entries.expand')}
+                    aria-expanded={!!expanded[entry.date]}
+                  >
+                    {expanded[entry.date] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => startEdit(entry)} aria-label={t('common.edit')}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => setDeleteTarget(entry)} aria-label={t('common.delete')} className="text-destructive hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
+              </div>
+              {expanded[entry.date] ? (
                 <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {FIELDS.map((f) => (
                     <div key={f.key} className="flex flex-col">
@@ -155,16 +174,18 @@ export function EntriesList({ initialEntries, todayDate }: { initialEntries: Ent
                       <dd className="text-sm break-words">{entry[f.key] || '—'}</dd>
                     </div>
                   ))}
+                  <div className="flex flex-col">
+                    <dt className="text-xs font-medium text-muted-foreground">{t('entries.submittedBy')}</dt>
+                    <dd className="text-sm break-words">{entry.user}</dd>
+                  </div>
+                  <div className="flex flex-col">
+                    <dt className="text-xs font-medium text-muted-foreground">{t('entries.updatedAt')}</dt>
+                    <dd className="text-sm break-words">{formatTimestamp(entry.updatedAt, locale)}</dd>
+                  </div>
                 </dl>
-              </div>
-              <div className="flex gap-2 sm:flex-col">
-                <Button variant="outline" size="icon" onClick={() => startEdit(entry)} aria-label={t('common.edit')}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => setDeleteTarget(entry)} aria-label={t('common.delete')} className="text-destructive hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground truncate">{entry.a}</p>
+              )}
             </div>
           </Card>
         ))}

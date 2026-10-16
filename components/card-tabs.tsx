@@ -39,11 +39,11 @@ export function CardTabs({
   const [tabData, setTabData] = useState<EquipmentTab[]>(tabs);
   const [saving, setSaving] = useState(false);
   const [savingRanges, setSavingRanges] = useState(false);
-  // A/B filter — every sub-label starts checked (show both)
+  // A/B filter — sub-labels start unchecked (operator picks which to show)
   const [subFilter, setSubFilter] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const tab of tabs) {
-      for (const sub of tab.subLabels || []) init[sub] = true;
+      for (const sub of tab.subLabels || []) init[sub] = false;
     }
     return init;
   });
@@ -242,9 +242,9 @@ export function CardTabs({
         {currentTab.rows.map((row, i) => {
           if (!isRowVisible(row)) return null;
           const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
-          // In A/B tabs the tag character sits on its own line with the number under it
+          // The tag code sits on its own line with the numbers under it
           const [tagCode, ...tagNumbers] = row.tagNo.split(' ');
-          const stackedTag = Boolean(currentTab.subLabels && tagNumbers.length > 0);
+          const stackedTag = tagNumbers.length > 0;
           return (
             <div key={i} className="flex flex-col gap-1.5">
               {/* Row 1: Tag No + Description */}
@@ -272,7 +272,7 @@ export function CardTabs({
                   disabled={!canCreate}
                   className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
                     outOfRange
-                      ? 'border-[#F7F0C6] bg-[#F7F0C6]/20 text-amber-900 dark:text-[#F7F0C6]'
+                      ? 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-semibold'
                       : 'bg-card border-border focus:border-primary'
                   } ${!canCreate ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
@@ -318,7 +318,7 @@ export function CardTabs({
 
       {/* Out-of-range warning */}
       {outOfRangeCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-[#F7F0C6] bg-[#F7F0C6] px-4 py-2 text-sm text-amber-900 dark:text-[#F7F0C6]">
+        <div className="flex items-center gap-2 rounded-lg border border-red-500 bg-red-50 dark:bg-red-950/40 px-4 py-2 text-sm text-red-700 dark:text-red-300 font-medium">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{t('outOfRange')} ({outOfRangeCount})</span>
         </div>
