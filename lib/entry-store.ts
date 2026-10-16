@@ -8,7 +8,7 @@ import path from 'path';
 import { google } from 'googleapis';
 import { todayCairo } from './date';
 import { invalidateAll } from './cache';
-import { formatDuration, parseDuration } from './card-config';
+import { formatDuration, parseDuration } from './duration';
 import type { UserRole } from '@/config/mock-users';
 
 export type EntryStatus = 'Operator' | 'Supervisor' | 'Engineer';
