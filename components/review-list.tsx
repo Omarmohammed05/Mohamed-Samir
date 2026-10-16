@@ -7,11 +7,26 @@ import { StatusBadge } from './status-badge';
 import { formatTimestamp, toArabicDigits } from '@/lib/date';
 import type { CardEntry } from '@/lib/entry-store';
 import type { EquipmentTab } from '@/config/card-data';
-import { Loader2, Check, Pencil, Save, X } from 'lucide-react';
+import { Loader2, Check, Pencil, Save, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+
+function isOutOfRange(value: string, min: string, max: string): boolean {
+  if (!value.trim()) return false;
+  const v = parseFloat(value);
+  if (isNaN(v)) return false;
+  if (min.trim()) {
+    const mn = parseFloat(min);
+    if (!isNaN(mn) && v < mn) return true;
+  }
+  if (max.trim()) {
+    const mx = parseFloat(max);
+    if (!isNaN(mx) && v > mx) return true;
+  }
+  return false;
+}
 
 type Props = {
   role: 'operator' | 'supervisor' | 'engineer' | 'admin';
@@ -180,6 +195,9 @@ export function ReviewList({ role }: Props) {
             {entry.supervisor_name && (
               <span>{t('history.supervisor')}: <span className="font-medium text-foreground">{entry.supervisor_name}</span></span>
             )}
+            {entry.engineer_name && (
+              <span>{t('history.engineer')}: <span className="font-medium text-foreground">{entry.engineer_name}</span></span>
+            )}
           </div>
           {canApprove && (
             <Button variant="outline" size="sm" onClick={() => openReview(entry)} className="self-start">
@@ -234,7 +252,11 @@ export function ReviewList({ role }: Props) {
                         type="text"
                         value={row.value || ''}
                         onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border bg-card border-border focus:border-primary focus:outline-none"
+                        className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
+                          isOutOfRange(row.value || '', row.min, row.max)
+                            ? 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-semibold'
+                            : 'bg-card border-border focus:border-primary'
+                        }`}
                       />
                       <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
                         {row.unit}
@@ -250,6 +272,21 @@ export function ReviewList({ role }: Props) {
               </div>
             </div>
           )}
+
+          {(() => {
+            const count = editData.reduce(
+              (acc, tab) =>
+                acc +
+                tab.rows.filter((row) => isOutOfRange(row.value || '', row.min, row.max)).length,
+              0,
+            );
+            return count > 0 ? (
+              <div className="flex items-center gap-2 rounded-lg border border-red-500 bg-red-50 dark:bg-red-950/40 px-4 py-2 text-sm text-red-700 dark:text-red-300 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                <span>{t('cards.outOfRange')} ({count})</span>
+              </div>
+            ) : null;
+          })()}
 
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={handleSaveEdit} disabled={saving}>

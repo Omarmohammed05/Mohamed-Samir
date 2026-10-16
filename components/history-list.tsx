@@ -4,10 +4,29 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { StatusBadge } from './status-badge';
 import { formatTimestamp, formatDisplayLong, toArabicDigits } from '@/lib/date';
+import { formatDuration } from '@/lib/duration';
 import type { CardEntry } from '@/lib/entry-store';
+import type { EquipmentTab } from '@/config/card-data';
 import { CARD_TABS } from '@/config/cards';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+
+function isOutOfRange(value: string, min: string, max: string): boolean {
+  if (!value.trim()) return false;
+  const v = parseFloat(value);
+  if (isNaN(v)) return false;
+  if (min.trim()) {
+    const mn = parseFloat(min);
+    if (!isNaN(mn) && v < mn) return true;
+  }
+  if (max.trim()) {
+    const mx = parseFloat(max);
+    if (!isNaN(mx) && v > mx) return true;
+  }
+  return false;
+}
 
 export function HistoryList() {
   const t = useTranslations();
@@ -16,6 +35,8 @@ export function HistoryList() {
   const [loading, setLoading] = useState(true);
   const [filterCard, setFilterCard] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [detailEntry, setDetailEntry] = useState<CardEntry | null>(null);
+  const [detailGroups, setDetailGroups] = useState<EquipmentTab[]>([]);
 
   useEffect(() => {
     fetch('/api/card-entries?filter=history')
@@ -24,6 +45,22 @@ export function HistoryList() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Parse the entry's rows into read-only equipment groups for the details dialog
+  function openDetails(entry: CardEntry) {
+    const tabMap = new Map<string, EquipmentTab>();
+    for (const row of entry.rows) {
+      const [equipment, tagNo, unit, description, min, norm, max, value] = row;
+      if (!tabMap.has(equipment)) {
+        tabMap.set(equipment, { id: equipment, label: equipment, rows: [] });
+      }
+      tabMap.get(equipment)!.rows.push({
+        tagNo, unit, description, min, norm, max, value: value || '',
+      });
+    }
+    setDetailGroups(Array.from(tabMap.values()));
+    setDetailEntry(entry);
+  }
 
   const filtered = useMemo(() => {
     return entries.filter((e) => {
@@ -113,11 +150,69 @@ export function HistoryList() {
                 {entry.engineer_name && (
                   <span>{t('history.engineer')}: <span className="font-medium text-foreground">{entry.engineer_name}</span></span>
                 )}
+                {entry.duration_seconds != null && (
+                  <span>{t('history.duration')}: <span className="font-medium text-foreground">{formatDuration(entry.duration_seconds)}</span></span>
+                )}
               </div>
+              <Button variant="outline" size="sm" onClick={() => openDetails(entry)} className="self-start">
+                {t('history.open')}
+              </Button>
             </div>
           ))}
         </div>
       ))}
+
+      {/* Details dialog (read-only) */}
+      <Dialog open={!!detailEntry} onOpenChange={(v) => !v && setDetailEntry(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {detailEntry?.card_id} — {t('history.detailsTitle')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            {detailGroups.map((group) => (
+              <div key={group.id} className="flex flex-col gap-2">
+                <h3 className="text-sm font-semibold text-center">{group.label}</h3>
+                <div className="rounded-xl bg-primary/10 p-3 flex flex-col gap-3">
+                  {group.rows.map((row, i) => {
+                    const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
+                    return (
+                      <div key={i} className="flex flex-col gap-1.5">
+                        <div className="flex gap-2">
+                          <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs font-medium overflow-hidden">
+                            <span className="block w-full break-words leading-tight">{row.tagNo}</span>
+                          </div>
+                          <div className="flex-[2] min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs overflow-hidden">
+                            <span className="block w-full break-words leading-tight">{row.description}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 items-stretch">
+                          <div className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border overflow-hidden ${
+                            outOfRange
+                              ? 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-semibold'
+                              : 'bg-card border-border'
+                          }`}>
+                            {row.value || '—'}
+                          </div>
+                          <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
+                            {row.unit}
+                          </div>
+                          <div className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-card border border-border flex flex-col items-center justify-center gap-0.5">
+                            <span className="text-xs leading-tight">{row.min}</span>
+                            <span className="text-xs leading-tight">{row.norm}</span>
+                            <span className="text-xs leading-tight">{row.max}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

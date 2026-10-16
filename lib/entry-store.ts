@@ -8,7 +8,7 @@ import path from 'path';
 import { google } from 'googleapis';
 import { todayCairo } from './date';
 import { invalidateAll } from './cache';
-import { formatDuration, parseDuration } from './card-config';
+import { formatDuration, parseDuration } from './duration';
 import type { UserRole } from '@/config/mock-users';
 
 export type EntryStatus = 'Operator' | 'Supervisor' | 'Engineer';
@@ -230,7 +230,7 @@ export async function createEntry(params: {
     operator_name: params.user_name,
     supervisor_name: '',
     engineer_name: '',
-    duration_seconds: params.user_role === 'operator' ? params.duration_seconds : null,
+    duration_seconds: params.duration_seconds,
     created_at: now,
     supervisor_approved_at: null,
     engineer_approved_at: null,

@@ -225,7 +225,10 @@
     "empty": "لا توجد سجلات في آخر ٤ أيام",
     "operator": "المشغل",
     "supervisor": "المشرف",
-    "engineer": "المهندس"
+    "engineer": "المهندس",
+    "open": "التفاصيل",
+    "detailsTitle": "تفاصيل السجل",
+    "duration": "المدة"
   },
   "review": {
     "title": "المراجعة المعلقة",
