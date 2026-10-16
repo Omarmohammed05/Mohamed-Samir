@@ -225,7 +225,10 @@
     "empty": "No entries in the last 4 days",
     "operator": "Operator",
     "supervisor": "Supervisor",
-    "engineer": "Engineer"
+    "engineer": "Engineer",
+    "open": "Details",
+    "detailsTitle": "Entry Details",
+    "duration": "Duration"
   },
   "review": {
     "title": "Pending Review",
