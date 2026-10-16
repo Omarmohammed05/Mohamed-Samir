@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Save, Loader2, SlidersHorizontal, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { EquipmentTab } from '@/config/card-data';
+import type { UserRole } from '@/config/mock-users';
 
 function isOutOfRange(value: string, min: string, max: string): boolean {
   if (!value.trim()) return false;
@@ -34,7 +35,7 @@ export function CardTabs({
 }: {
   cardId: string;
   tabs: EquipmentTab[];
-  role: 'admin' | 'user';
+  role: UserRole;
   userEmail: string;
 }) {
   const t = useTranslations('cards');
@@ -43,7 +44,19 @@ export function CardTabs({
   const [saving, setSaving] = useState(false);
   const [savingRanges, setSavingRanges] = useState(false);
 
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin;
+  const canCreate = role === 'operator' || role === 'supervisor' || role === 'admin';
+
+  // Hidden timer for operators — uses timestamp, not a counter
+  const timerStartRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (role === 'operator') {
+      timerStartRef.current = Date.now();
+    }
+    return () => {
+      timerStartRef.current = null;
+    };
+  }, [role, cardId]);
 
   function handleValueChange(tabIndex: number, rowIndex: number, value: string) {
     setTabData((prev) => {
@@ -88,12 +101,23 @@ export function CardTabs({
           ]);
         }
       }
-      const res = await fetch('/api/sheets/card-data', {
+
+      // Calculate duration for operators (timestamp-based, no drift)
+      let durationSeconds: number | null = null;
+      if (role === 'operator' && timerStartRef.current) {
+        durationSeconds = Math.round((Date.now() - timerStartRef.current) / 1000);
+      }
+
+      // Save via the new card-entries API (handles approval workflow + sheet sync)
+      const res = await fetch('/api/card-entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'submission', cardId, user: userEmail, rows: allRows }),
+        body: JSON.stringify({ card_id: cardId, rows: allRows, duration_seconds: durationSeconds }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed');
+      }
       toast.success(t('saveSuccess'));
       setTabData((prev) =>
         prev.map((tab) => ({
@@ -101,8 +125,12 @@ export function CardTabs({
           rows: tab.rows.map((row) => ({ ...row, value: '' })),
         })),
       );
-    } catch {
-      toast.error(t('saveError'));
+      // Reset timer for operator after save
+      if (role === 'operator') {
+        timerStartRef.current = Date.now();
+      }
+    } catch (err) {
+      toast.error((err as Error).message || t('saveError'));
     } finally {
       setSaving(false);
     }
@@ -193,11 +221,12 @@ export function CardTabs({
                   type="text"
                   value={row.value || ''}
                   onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
+                  disabled={!canCreate}
                   className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
                     outOfRange
                       ? 'border-[#F7F0C6] bg-[#F7F0C6]/20 text-amber-900 dark:text-[#F7F0C6]'
                       : 'bg-card border-border focus:border-primary'
-                  }`}
+                  } ${!canCreate ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
                 <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
                   {row.unit}
@@ -248,7 +277,7 @@ export function CardTabs({
       )}
 
       {/* All tabs required notice */}
-      {!canSave && (
+      {!canSave && canCreate && (
         <p className="text-sm text-muted-foreground text-center">{t('allTabsRequired')}</p>
       )}
 
@@ -269,19 +298,24 @@ export function CardTabs({
             )}
           </Button>
         )}
-        <Button onClick={handleSaveValues} disabled={!canSave || saving} className="rounded-lg">
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t('saving')}
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              {t('save')}
-            </>
-          )}
-        </Button>
+        {canCreate && (
+          <Button onClick={handleSaveValues} disabled={!canSave || saving} className="rounded-lg">
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('saving')}
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                {t('save')}
+              </>
+            )}
+          </Button>
+        )}
+        {!canCreate && (
+          <p className="text-sm text-muted-foreground text-center py-2">{t('engineerNoCreate')}</p>
+        )}
       </div>
     </div>
   );

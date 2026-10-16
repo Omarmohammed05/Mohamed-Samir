@@ -15,5 +15,8 @@ export default async function RootPage({
   if (session.role === 'admin') {
     redirect(`/${locale}/admin`);
   }
-  redirect(`/${locale}/entries`);
+  if (session.role === 'supervisor' || session.role === 'engineer') {
+    redirect(`/${locale}/review`);
+  }
+  redirect(`/${locale}/cards`);
 }

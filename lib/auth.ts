@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
-import { MOCK_USERS } from '@/config/mock-users';
+import { MOCK_USERS, normalizeRole, type UserRole } from '@/config/mock-users';
 
 export type Session = {
   email: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   name: string;
 };
 
@@ -29,7 +29,7 @@ export async function mockLogin(email: string, password: string): Promise<Sessio
       (u) => u.email === email.toLowerCase().trim() && u.password === password,
     );
     if (!user) return null;
-    return { email: user.email, role: user.role, name: user.name };
+    return { email: user.email, role: normalizeRole(user.role), name: user.name };
   }
 
   const user = MOCK_USERS.find(
@@ -54,7 +54,7 @@ export async function getSessionFromToken(token: string): Promise<Session | null
     const { payload } = await jwtVerify(token, SECRET);
     return {
       email: payload.email as string,
-      role: payload.role as 'user' | 'admin',
+      role: normalizeRole(payload.role as string),
       name: payload.name as string,
     };
   } catch {

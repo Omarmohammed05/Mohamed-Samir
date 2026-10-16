@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { MOCK_USERS, type MockUser } from '@/config/mock-users';
+import { MOCK_USERS, normalizeRole, type MockUser, type UserRole } from '@/config/mock-users';
 import { invalidateAll } from './cache';
 
 export type ManagedUser = MockUser;
@@ -101,7 +101,7 @@ export async function listUsers(): Promise<ManagedUser[]> {
     users.push({
       email: (row[0] || '').toString().toLowerCase().trim(),
       name: (row[1] || '').toString(),
-      role: ((row[2] || 'user').toString() as 'user' | 'admin'),
+      role: normalizeRole((row[2] || 'operator').toString()),
       password: (row[3] || '').toString(),
     });
   }
@@ -112,7 +112,7 @@ export async function listUsers(): Promise<ManagedUser[]> {
 export async function addUser(data: {
   email: string;
   name: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   password: string;
 }): Promise<ManagedUser> {
   if (!isReal()) throw new Error('User management requires Google Sheets mode (SHEETS_MODE=real)');
@@ -142,7 +142,7 @@ export async function addUser(data: {
 
 export async function updateUser(
   email: string,
-  data: { name?: string; role?: 'user' | 'admin'; password?: string },
+  data: { name?: string; role?: UserRole; password?: string },
 ): Promise<ManagedUser> {
   if (!isReal()) throw new Error('User management requires Google Sheets mode (SHEETS_MODE=real)');
 
@@ -159,10 +159,11 @@ export async function updateUser(
     const row = rows[i];
     const rowEmail = (row?.[0] || '').toString().toLowerCase().trim();
     if (rowEmail === emailLower) {
+      const existingRole = normalizeRole((row[2] || 'operator').toString());
       const updated = {
         email: emailLower,
         name: data.name ?? (row[1] || '').toString(),
-        role: data.role ?? ((row[2] || 'user').toString() as 'user' | 'admin'),
+        role: data.role ?? existingRole,
         password: data.password ?? (row[3] || '').toString(),
       };
       await withRetry(() =>

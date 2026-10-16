@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
-import { LogOut, User as UserIcon, ChevronDown, Menu } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -21,6 +21,23 @@ export function Header({ session }: { session: Session }) {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   }
+
+  // Navigation items per role
+  const navItems: { label: string; href: string }[] = [];
+  // All roles see Cards
+  navItems.push({ label: t('nav.cards'), href: '/cards' });
+  // All roles see History
+  navItems.push({ label: t('nav.history'), href: '/history' });
+  // Supervisor and Engineer see Review
+  if (session.role === 'supervisor' || session.role === 'engineer' || session.role === 'admin') {
+    navItems.push({ label: t('nav.review'), href: '/review' });
+  }
+  // Admin sees Admin dashboard
+  if (session.role === 'admin') {
+    navItems.push({ label: t('nav.admin'), href: '/admin' });
+  }
+  // All roles see Settings
+  navItems.push({ label: t('nav.settings'), href: '/settings' });
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-sm">
@@ -45,36 +62,20 @@ export function Header({ session }: { session: Session }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => router.push('/cards')}>
-                {t('nav.cards')}
-              </DropdownMenuItem>
-              {session.role === 'admin' && (
-                <>
-                  <DropdownMenuItem onClick={() => router.push('/entries')}>
-                    {t('nav.myEntries')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/admin')}>
-                    {t('nav.admin')}
-                  </DropdownMenuItem>
-                </>
-              )}
+              {navItems.map((item) => (
+                <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)}>
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           {/* Desktop nav */}
           <nav className="hidden sm:flex items-center gap-1 me-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/cards')}>
-              {t('nav.cards')}
-            </Button>
-            {session.role === 'admin' && (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => router.push('/entries')}>
-                  {t('nav.myEntries')}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => router.push('/admin')}>
-                  {t('nav.admin')}
-                </Button>
-              </>
-            )}
+            {navItems.map((item) => (
+              <Button key={item.href} variant="ghost" size="sm" onClick={() => router.push(item.href)}>
+                {item.label}
+              </Button>
+            ))}
           </nav>
           <LanguageSwitcher />
           <AccessibilitySettings />
@@ -85,7 +86,6 @@ export function Header({ session }: { session: Session }) {
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-medium">
                   {session.name.charAt(0).toUpperCase()}
                 </span>
-                <ChevronDown className="hidden sm:block h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -93,12 +93,15 @@ export function Header({ session }: { session: Session }) {
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium">{session.name}</span>
                   <span className="text-xs text-muted-foreground">{session.email}</span>
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {t('userMenu.role')}: {session.role}
+                  <span className="text-xs text-muted-foreground">
+                    {t('userMenu.role')}: {t(`users.${session.role}`)}
                   </span>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/settings')}>
+                {t('common.changePassword')}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut />
                 <span>{t('common.logout')}</span>

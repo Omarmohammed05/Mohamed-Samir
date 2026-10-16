@@ -20,6 +20,7 @@ export default async function EntriesPage({
 
   if (!session) redirect(`/${locale}/login`);
   if (session.role === 'admin') redirect(`/${locale}/admin`);
+  if (session.role === 'supervisor' || session.role === 'engineer') redirect(`/${locale}/review`);
 
   const today = todayCairo();
   let entries: Entry[] = [];

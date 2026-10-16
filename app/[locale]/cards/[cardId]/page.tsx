@@ -70,7 +70,7 @@ export default async function CardDetailPage({
           <h1 className="text-2xl font-bold tracking-tight">{id}</h1>
         </div>
         {tabs.length > 0 ? (
-          <CardTabs cardId={id} tabs={tabs} role={session.role} userEmail={session.email} />
+          <CardTabs cardId={id} tabs={tabs} role={session.role as 'operator' | 'supervisor' | 'engineer' | 'admin'} userEmail={session.email} />
         ) : (
           <div className="rounded-xl border border-border bg-card p-8 flex flex-col items-center justify-center gap-4 min-h-[300px]">
             <p className="text-muted-foreground text-center">{t('cards.cardContent')}</p>
