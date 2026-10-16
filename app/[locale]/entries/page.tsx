@@ -35,7 +35,7 @@ export default async function EntriesPage({
   return (
     <div className="min-h-screen bg-background">
       <Header session={session} />
-      <main className="mx-auto max-w-3xl px-4 py-6 flex flex-col gap-6">
+      <main className="mx-auto max-w-3xl px-4 py-6 flex flex-col gap-6 min-w-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('entries.title')}</h1>
         {sheetsError && (
           <div className="rounded-xl border border-destructive/50 bg-destructive/5 p-4 flex flex-col gap-2">

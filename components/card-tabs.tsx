@@ -115,6 +115,12 @@ export function CardTabs({
       });
       if (!res.ok) throw new Error();
       toast.success(t('saveSuccess'));
+      setTabData((prev) =>
+        prev.map((tab) => ({
+          ...tab,
+          rows: tab.rows.map((row) => ({ ...row, value: '' })),
+        })),
+      );
     } catch {
       toast.error(t('saveError'));
     } finally {
@@ -237,7 +243,7 @@ export function CardTabs({
                   onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
                   className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
                     outOfRange
-                      ? 'border-red-500 bg-red-50 text-red-700'
+                      ? 'border-[#F7F0C6] bg-[#F7F0C6]/20 text-amber-900 dark:text-[#F7F0C6]'
                       : 'bg-card border-border focus:border-primary'
                   }`}
                 />
@@ -283,7 +289,7 @@ export function CardTabs({
 
       {/* Out-of-range warning */}
       {outOfRangeCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-[#F7F0C6] bg-[#F7F0C6] px-4 py-2 text-sm text-amber-900 dark:text-[#F7F0C6]">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{t('outOfRange')} ({outOfRangeCount})</span>
         </div>

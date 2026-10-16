@@ -145,12 +145,13 @@ export function isValidDateString(s: string): boolean {
 /** Format YYYY-MM-DD for display in a given locale. */
 export function formatDisplay(date: string, locale: string): string {
   const d = new Date(date + 'T00:00:00');
-  return d.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', {
+  const formatted = d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
     timeZone: CAIRO_TZ,
   });
+  return locale === 'ar' ? toArabicDigits(formatted) : formatted;
 }
 
 /** Arabic month names (Gregorian) for explicit formatting. */

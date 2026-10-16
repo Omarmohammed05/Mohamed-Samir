@@ -18,13 +18,12 @@ function mergeCardData(
     ...tab,
     rows: tab.rows.map((row) => {
       const savedConfig = sheetData.config.get(row.tagNo);
-      const savedValue = sheetData.latestValues.get(row.tagNo);
       return {
         ...row,
         min: savedConfig?.min ?? row.min,
         norm: savedConfig?.norm ?? row.norm,
         max: savedConfig?.max ?? row.max,
-        value: savedValue ?? row.value,
+        value: '',
       };
     }),
   }));
@@ -61,7 +60,7 @@ export default async function CardDetailPage({
   return (
     <div className="min-h-screen bg-background">
       <Header session={session} />
-      <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6 min-w-0">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon">
             <Link href="/cards">
