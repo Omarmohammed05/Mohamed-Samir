@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { canReadEntry, canWriteEntry, canDeleteEntry, isAdmin, PermissionError, assertUser, assertAdmin } from '@/lib/permissions';
 import type { Session } from '@/lib/auth';
 
-const user: Session = { email: 'sara@team.com', role: 'user', name: 'Sara' };
+const user: Session = { email: 'sara@team.com', role: 'operator', name: 'Sara' };
+const supervisor: Session = { email: 'laila@team.com', role: 'supervisor', name: 'Layla' };
+const engineer: Session = { email: 'layla@team.com', role: 'engineer', name: 'Layla' };
 const admin: Session = { email: 'admin@team.com', role: 'admin', name: 'Admin' };
-const otherUser: Session = { email: 'omar@team.com', role: 'user', name: 'Omar' };
+const otherUser: Session = { email: 'omar@team.com', role: 'operator', name: 'Omar' };
 
-describe('permissions', () => {
+describe('legacy daily-entries permissions', () => {
   describe('canReadEntry', () => {
     it('allows user to read own entries', () => {
       expect(canReadEntry(user, 'sara@team.com')).toBe(true);
@@ -30,6 +32,11 @@ describe('permissions', () => {
     it('denies admin from writing (admin edits in Sheets)', () => {
       expect(canWriteEntry(admin, 'sara@team.com')).toBe(false);
     });
+    it('applies to every non-admin role equally', () => {
+      expect(canWriteEntry(supervisor, 'laila@team.com')).toBe(true);
+      expect(canWriteEntry(engineer, 'layla@team.com')).toBe(true);
+      expect(canWriteEntry(supervisor, 'sara@team.com')).toBe(false);
+    });
   });
 
   describe('canDeleteEntry', () => {
@@ -42,11 +49,18 @@ describe('permissions', () => {
     it('denies admin from deleting', () => {
       expect(canDeleteEntry(admin, 'sara@team.com')).toBe(false);
     });
+    it('ignores entries owned by others', () => {
+      expect(canDeleteEntry(otherUser, 'omar@team.com')).toBe(true);
+    });
   });
 
   describe('isAdmin', () => {
     it('returns true for admin session', () => expect(isAdmin(admin)).toBe(true));
-    it('returns false for user session', () => expect(isAdmin(user)).toBe(false));
+    it('returns false for non-admin sessions', () => {
+      expect(isAdmin(user)).toBe(false);
+      expect(isAdmin(supervisor)).toBe(false);
+      expect(isAdmin(engineer)).toBe(false);
+    });
     it('returns false for null session', () => expect(isAdmin(null)).toBe(false));
   });
 
@@ -63,8 +77,10 @@ describe('permissions', () => {
     it('passes for admin', () => {
       expect(() => assertAdmin(admin)).not.toThrow();
     });
-    it('throws for non-admin user', () => {
+    it('throws for non-admin roles', () => {
       expect(() => assertAdmin(user)).toThrow(PermissionError);
+      expect(() => assertAdmin(supervisor)).toThrow(PermissionError);
+      expect(() => assertAdmin(engineer)).toThrow(PermissionError);
     });
     it('throws for null session', () => {
       expect(() => assertAdmin(null)).toThrow(PermissionError);

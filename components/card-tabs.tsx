@@ -44,7 +44,7 @@ export function CardTabs({
   const [saving, setSaving] = useState(false);
   const [savingRanges, setSavingRanges] = useState(false);
 
-  const isAdmin = role === 'admin;
+  const isAdmin = role === 'admin';
   const canCreate = role === 'operator' || role === 'supervisor' || role === 'admin';
 
   // Hidden timer for operators — uses timestamp, not a counter

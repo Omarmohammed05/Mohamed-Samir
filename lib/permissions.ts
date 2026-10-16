@@ -106,6 +106,33 @@ export function canChangePassword(session: Session | null): boolean {
   return !!session;
 }
 
+// ─── Legacy daily-entries helpers ───────────────────────
+// Used by the /api/entries routes (the original daily log sheet).
+// Users act on their own rows only; admin reads anything but edits in Sheets.
+
+function isOwnRow(session: Session, owner: string): boolean {
+  return session.email.toLowerCase() === owner.toLowerCase();
+}
+
+/** Any authenticated user (legacy name for the daily-entries routes). */
+export function assertUser(session: Session | null): asserts session is Session {
+  assertAuthenticated(session);
+}
+
+export function canReadEntry(session: Session, owner: string): boolean {
+  return isAdmin(session) || isOwnRow(session, owner);
+}
+
+export function canWriteEntry(session: Session, owner: string): boolean {
+  if (isAdmin(session)) return false; // admin edits happen in Sheets
+  return isOwnRow(session, owner);
+}
+
+export function canDeleteEntry(session: Session, owner: string): boolean {
+  if (isAdmin(session)) return false;
+  return isOwnRow(session, owner);
+}
+
 export class PermissionError extends Error {
   status = 403;
 }

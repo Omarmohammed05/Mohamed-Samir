@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { Header } from '@/components/header';
 import { ChangePassword } from '@/components/change-password';
@@ -13,10 +14,7 @@ export default async function SettingsPage({
   const t = await getTranslations();
   const session = await getSession();
 
-  if (!session) {
-    const { redirect } = await import('next/navigation');
-    redirect(`/${locale}/login`);
-  }
+  if (!session) redirect(`/${locale}/login`);
 
   return (
     <div className="min-h-screen bg-background">

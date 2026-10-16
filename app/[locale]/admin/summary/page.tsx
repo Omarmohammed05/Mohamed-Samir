@@ -8,6 +8,7 @@ import { MOCK_USERS } from '@/config/mock-users';
 import { Header } from '@/components/header';
 import { SummaryReport } from '@/components/summary-report';
 import type { Entry } from '@/lib/mock-store';
+import type { UserRole } from '@/config/mock-users';
 
 const ADMIN_CACHE_KEY = 'admin-entries';
 
@@ -38,7 +39,7 @@ export default async function SummaryPage({
   const entries = cached?.entries ?? [];
   const sheetsMode = (process.env.SHEETS_MODE || 'excel') as 'mock' | 'excel' | 'real';
 
-  let users: { email: string; name: string; role: 'user' | 'admin' }[] = [];
+  let users: { email: string; name: string; role: UserRole }[] = [];
   if (sheetsMode === 'real') {
     try {
       const allUsers = await listUsers();

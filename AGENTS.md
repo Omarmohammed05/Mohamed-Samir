@@ -28,6 +28,9 @@ docker compose -f docker-compose.base44.yml up -d
 - **i18n**: next-intl with `en`/`ar` locales, full RTL support. Messages in `messages/en.json` and `messages/ar.json`.
 - **Cache** (`lib/cache.ts`): 10-second TTL for admin data. Invalidated on writes.
 - **Sheet highlighting** (`lib/conditional-formatting.ts`): existing Sheet rules must be re-synced with the admin's **Apply to Sheet** button after formatting code changes; hot reload alone does not update the Sheet. Entries are written as RAW strings, so the rules must coerce numeric text (not just use `ISNUMBER` directly). Out-of-range values get an amber background and dark amber text without rewriting cell data. Test the rule payload with `npm run test -- tests/conditional-formatting.test.ts`.
+- **Duration recolor** (`app/api/card-config/recolor`): idempotent — every Duration cell in CardEntries gets an explicit background each run, so cells that fall back in range under new card time ranges reset to default.
+- **SHEETS_MODE=mock caveat**: the in-memory card-entry store lives per compiled route bundle in `next dev`, so entries created via one route are NOT visible to another route (create works, approve 404s). Use `SHEETS_MODE=excel` (JSON file store) for any end-to-end workflow test. Verified flow: operator creates (duration recorded, hidden) → supervisor approves → engineer approves final; edits allowed per `lib/permissions.ts`; passwords min 8 chars.
+- **Workflow verification against the live sheet requires real credentials**: in `SHEETS_MODE=real`, login checks the Users tab in Google Sheets — the demo passwords from mock mode do not work there.
 
 ## Commands
 - `npm run dev` — dev server on port 3000
