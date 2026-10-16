@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { pbkdf2Sync, randomBytes, timingSafeEqual } from 'crypto';
 import { MOCK_USERS, normalizeRole, type MockUser, type UserRole } from '@/config/mock-users';
 import { invalidateAll } from './cache';
 
@@ -6,6 +7,42 @@ export type ManagedUser = MockUser;
 
 const USERS_SHEET = 'Users';
 const USERS_HEADER = ['Email', 'Name', 'Role', 'Password'];
+
+// ─── Password hashing (never stored in plain text) ─────
+
+const PBKDF2_ITERATIONS = 100_000;
+
+/** Hash a plain-text password with a random salt: "sha256$<salt>$<hash>". */
+export function hashPassword(plain: string): string {
+  const salt = randomBytes(16).toString('hex');
+  const hash = pbkdf2Sync(plain, salt, PBKDF2_ITERATIONS, 32, 'sha256').toString('hex');
+  return `sha256$${salt}$${hash}`;
+}
+
+/**
+ * Verify a plain-text password against a stored value.
+ * Supports hashed values (sha256$...) and legacy plain-text rows
+ * (kept working for existing users; upgraded to a hash on next write).
+ */
+export function verifyPassword(plain: string, stored: string): boolean {
+  if (stored.startsWith('sha256$')) {
+    const [, salt, hash] = stored.split('$');
+    if (!salt || !hash) return false;
+    const candidate = pbkdf2Sync(plain, salt, PBKDF2_ITERATIONS, 32, 'sha256').toString('hex');
+    try {
+      return timingSafeEqual(Buffer.from(candidate, 'hex'), Buffer.from(hash, 'hex'));
+    } catch {
+      return false;
+    }
+  }
+  // Legacy plain-text row (pre-hashing migration)
+  return stored === plain;
+}
+
+/** True if the stored value is a legacy plain-text password that should be re-hashed. */
+export function isLegacyPlainPassword(stored: string): boolean {
+  return stored !== '' && !stored.startsWith('sha256$');
+}
 
 function isReal(): boolean {
   return process.env.SHEETS_MODE === 'real';
@@ -66,8 +103,8 @@ async function ensureUsersSheet(): Promise<void> {
         requestBody: { values: [USERS_HEADER] },
       }),
     );
-    // Seed with mock users
-    const seedValues = MOCK_USERS.map((u) => [u.email, u.name, u.role, u.password]);
+    // Seed with mock users (passwords hashed — never stored in plain text)
+    const seedValues = MOCK_USERS.map((u) => [u.email, u.name, u.role, hashPassword(u.password)]);
     await withRetry(() =>
       sheets.spreadsheets.values.append({
         spreadsheetId: sheetId,
@@ -132,7 +169,7 @@ export async function addUser(data: {
       spreadsheetId: sheetId,
       range: `${USERS_SHEET}!A:D`,
       valueInputOption: 'RAW',
-      requestBody: { values: [[email, data.name, data.role, data.password]] },
+      requestBody: { values: [[email, data.name, data.role, hashPassword(data.password)]] },
     }),
   );
 
@@ -164,7 +201,7 @@ export async function updateUser(
         email: emailLower,
         name: data.name ?? (row[1] || '').toString(),
         role: data.role ?? existingRole,
-        password: data.password ?? (row[3] || '').toString(),
+        password: data.password != null ? hashPassword(data.password) : (row[3] || '').toString(),
       };
       await withRetry(() =>
         sheets.spreadsheets.values.update({

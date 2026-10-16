@@ -8,7 +8,7 @@ import path from 'path';
 import { google } from 'googleapis';
 import { todayCairo } from './date';
 import { invalidateAll } from './cache';
-import { formatDuration, getCardConfig, getDurationColor } from './card-config';
+import { formatDuration, parseDuration } from './card-config';
 import type { UserRole } from '@/config/mock-users';
 
 export type EntryStatus = 'Operator' | 'Supervisor' | 'Engineer';
@@ -106,7 +106,7 @@ function entryToRow(e: CardEntry): string[] {
   return [
     e.id, e.card_id, e.status,
     e.operator_name, e.supervisor_name, e.engineer_name,
-    e.duration_seconds != null ? String(e.duration_seconds) : '',
+    e.duration_seconds != null ? formatDuration(e.duration_seconds) : '',
     e.created_at, e.supervisor_approved_at || '', e.engineer_approved_at || '',
     e.last_edited_by, e.last_edited_at, e.user_email,
     JSON.stringify(e.rows),
@@ -121,7 +121,7 @@ function rowToEntry(row: string[]): CardEntry {
     operator_name: row[3] || '',
     supervisor_name: row[4] || '',
     engineer_name: row[5] || '',
-    duration_seconds: row[6] ? Number(row[6]) : null,
+    duration_seconds: parseDuration(row[6]),
     created_at: row[7] || '',
     supervisor_approved_at: row[8] || null,
     engineer_approved_at: row[9] || null,

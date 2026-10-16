@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { assertAdmin } from '@/lib/permissions';
-import { getCardConfig, getDurationColor } from '@/lib/card-config';
+import { getCardConfig, getDurationColor, parseDuration } from '@/lib/card-config';
 import { listAllEntries } from '@/lib/entry-store';
 import { google } from 'googleapis';
 
@@ -62,9 +62,9 @@ export async function POST() {
       const cardId = row[1];
       const durationStr = row[6];
 
-      const durationSeconds = Number(durationStr);
+      const durationSeconds = parseDuration(durationStr);
       const range = config[cardId];
-      const color = durationStr && !isNaN(durationSeconds) && range
+      const color = durationSeconds != null && range
         ? getDurationColor(durationSeconds, range)
         : null;
       if (color) recolored++;

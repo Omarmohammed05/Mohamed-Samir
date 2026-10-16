@@ -65,6 +65,25 @@ export function formatDuration(seconds: number | null): string {
 }
 
 /**
+ * Parse a Duration cell back into raw seconds.
+ * Accepts mm:ss, hh:mm:ss, and legacy raw-second values.
+ */
+export function parseDuration(value: string | null | undefined): number | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (s === '') return null;
+  if (/^\d+$/.test(s)) return Number(s);
+  const parts = s.split(':').map(Number);
+  if (parts.length === 2 && parts.every((p) => !isNaN(p))) {
+    return Math.round(parts[0] * 60 + parts[1]);
+  }
+  if (parts.length === 3 && parts.every((p) => !isNaN(p))) {
+    return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  }
+  return null;
+}
+
+/**
  * Determine the color category for a duration value.
  * Returns 'high', 'low', or null (within range).
  */

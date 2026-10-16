@@ -27,22 +27,22 @@ export async function POST(req: NextRequest) {
       // Update password in Google Sheets Users tab
       const { updateUser } = await import('@/lib/users');
       // Verify current password
-      const { listUsers } = await import('@/lib/users');
+      const { listUsers, verifyPassword } = await import('@/lib/users');
       const users = await listUsers();
       const user = users.find((u) => u.email === session.email.toLowerCase().trim());
-      if (!user || user.password !== currentPassword) {
+      if (!user || !verifyPassword(currentPassword, user.password)) {
         return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
       }
       await updateUser(session.email, { password: newPassword });
     } else {
-      // Mock mode — verify against mock users
+      // Mock/excel mode — verify against mock users (with persistent overrides)
+      const { verifyMockPassword, setPasswordOverride } = await import('@/lib/password-store');
       const user = MOCK_USERS.find((u) => u.email === session.email.toLowerCase().trim());
-      if (!user || user.password !== currentPassword) {
+      if (!user || !(await verifyMockPassword(user, currentPassword))) {
         return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
       }
-      // In mock mode, we can't persist password changes to the static config,
-      // but we can update the in-memory copy
-      user.password = newPassword;
+      // Persist the new password so the login route bundle sees it
+      await setPasswordOverride(session.email, newPassword);
     }
 
     invalidateAll();
