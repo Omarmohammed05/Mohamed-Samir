@@ -81,9 +81,14 @@ export async function POST(req: NextRequest) {
       duration_seconds: duration_seconds ?? null,
     });
 
-    // Also write to the card tab in Google Sheets (existing behavior)
+    // Also write to the card tab in Google Sheets (existing behavior),
+    // including the operator's fill-in duration and display name
+    const durationText =
+      duration_seconds != null
+        ? `${Math.floor(duration_seconds / 60)}m ${duration_seconds % 60}s`
+        : '';
     try {
-      await saveCardSubmission(card_id, session.email, rows, filter || '');
+      await saveCardSubmission(card_id, session.email, rows, filter || '', durationText, session.name || '');
     } catch (err) {
       // Non-fatal: the card tab write is supplementary
       console.error('[card-entries POST] Card tab sync failed:', err instanceof Error ? err.message : 'unknown');
