@@ -100,10 +100,18 @@ export function CardTabs({
           ]);
         }
       }
+      // Record which A/B filter checkboxes were checked at save time
+      const checkedSubs = Object.entries(subFilter)
+        .filter(([, checked]) => checked)
+        .map(([label]) => label)
+        .join(', ');
       const res = await fetch('/api/sheets/card-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'submission', cardId, user: userEmail, rows: allRows }),
+        body: JSON.stringify({
+          type: 'submission', cardId, user: userEmail, rows: allRows,
+          filter: checkedSubs,
+        }),
       });
       if (!res.ok) throw new Error();
       toast.success(t('saveSuccess'));

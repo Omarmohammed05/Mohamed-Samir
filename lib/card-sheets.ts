@@ -79,7 +79,7 @@ export async function getCardTabData(tabName: string): Promise<string[][]> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
   const res = await withRetry(() =>
-    sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tabName}!A:Z` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tabName}!A:ZZ` }),
   );
   return (res.data.values || []) as string[][];
 }
@@ -225,8 +225,10 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
 
   const blankRow: string[] = [];
   const totalTags = rows.length;
+  // 'Filter' records which A/B checkboxes were checked for each submission
   const userHeaderRow: string[] = ['User', 'Date', 'Time'];
   while (userHeaderRow.length < 3 + totalTags) userHeaderRow.push('');
+  userHeaderRow.push('Filter');
 
   return [
     headerRow, tagNoRow, unitRow, descRow, minRow, normRow, maxRow,
@@ -254,6 +256,11 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
 
     const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
     if (userHeaderIdx >= 0) {
+      // Trim trailing blank tag columns to locate the old Filter cell
+      const oldTagCount = [...oldTags].reduce(
+        (n, t, i) => (t ? i + 1 : n),
+        0,
+      );
       for (const r of allData.slice(userHeaderIdx + 1)) {
         if (!r[0]) continue;
         const valuesByTag = new Map<string, string>();
@@ -262,6 +269,7 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
         }
         const newRow = [r[0], r[1] || '', r[2] || ''];
         for (const row of rows) newRow.push(valuesByTag.get(row[1]) ?? '');
+        newRow.push(r[3 + oldTagCount] || ''); // Filter cell
         submissionRows.push(newRow);
       }
     }
@@ -272,7 +280,7 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   const allRows = buildMatrixRows(rows, submissionRows);
 
   await withRetry(() =>
-    sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:Z` }),
+    sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:ZZ` }),
   );
   await withRetry(() =>
     sheets.spreadsheets.values.update({
@@ -293,6 +301,7 @@ export async function saveCardSubmission(
   cardId: string,
   user: string,
   rows: string[][],
+  filter = '',
 ): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
@@ -323,18 +332,36 @@ export async function saveCardSubmission(
     await saveCardConfig(cardId, configRows);
   }
 
-  // Append the submission row — Date/Time columns are written in Egypt time
+  // Append the submission row — Date/Time columns are written in Egypt time.
+  // The row is written explicitly after the last submission rather than via
+  // values.append, whose table detection misplaces rows on this matrix layout.
   const { date, time } = nowCairoDateTime();
 
   const entryRow: string[] = [user, date, time];
   for (const row of rows) {
     entryRow.push(row[7] || '');
   }
+  entryRow.push(filter);
+
+  let nextRow = 10; // default: first row after the header block
+  try {
+    const data = await getCardTabData(cardId);
+    const userHeaderIdx = data.findIndex((r) => r[0] === 'User');
+    if (userHeaderIdx >= 0) {
+      let last = userHeaderIdx;
+      for (let i = userHeaderIdx + 1; i < data.length; i++) {
+        if (data[i]?.[0]) last = i;
+      }
+      nextRow = last + 2; // 0-based index -> 1-based row after it
+    }
+  } catch {
+    /* keep default */
+  }
 
   await withRetry(() =>
-    sheets.spreadsheets.values.append({
+    sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${cardId}!A:Z`,
+      range: `${cardId}!A${nextRow}`,
       valueInputOption: 'RAW',
       requestBody: { values: [entryRow] },
     }),
