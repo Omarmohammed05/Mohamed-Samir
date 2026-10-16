@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { card_id, rows, duration_seconds } = parsed.data;
+  const { card_id, rows, duration_seconds, filter } = parsed.data;
 
   try {
     // Create the entry in the store
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     // Also write to the card tab in Google Sheets (existing behavior)
     try {
-      await saveCardSubmission(card_id, session.email, rows);
+      await saveCardSubmission(card_id, session.email, rows, filter || '');
     } catch (err) {
       // Non-fatal: the card tab write is supplementary
       console.error('[card-entries POST] Card tab sync failed:', err instanceof Error ? err.message : 'unknown');

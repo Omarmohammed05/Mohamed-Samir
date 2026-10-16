@@ -16,6 +16,63 @@ export function todayCairo(): string {
     });
 }
 
+/**
+ * Format an instant as ISO 8601 carrying the Cairo UTC offset
+ * (e.g. "2026-10-15T15:07:32+03:00"), so timestamps written to the
+ * Sheet read as Egypt local time while remaining parseable by Date().
+ */
+export function nowCairoISO(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CAIRO_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string): number =>
+    parseInt(parts.find((p) => p.type === type)!.value, 10);
+  const year = get('year');
+  const month = get('month');
+  const day = get('day');
+  const hour = get('hour');
+  const minute = get('minute');
+  const second = get('second');
+
+  // Offset of Africa/Cairo at this instant (handles the seasonal DST switch)
+  const asUTC = Date.UTC(year, month - 1, day, hour, minute, second);
+  const offsetMin = Math.round((asUTC - date.getTime()) / 60_000);
+  const sign = offsetMin < 0 ? '-' : '+';
+  const abs = Math.abs(offsetMin);
+
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${year}-${p(month)}-${p(day)}T${p(hour)}:${p(minute)}:${p(second)}` +
+    `${sign}${p(Math.floor(abs / 60))}:${p(abs % 60)}`;
+}
+
+/** Returns the current date (YYYY-MM-DD) and time (HH:MM:SS) in Africa/Cairo. */
+export function nowCairoDateTime(date: Date = new Date()): { date: string; time: string } {
+  const p = (n: number) => String(n).padStart(2, '0');
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CAIRO_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string): string =>
+    parts.find((x) => x.type === type)!.value.padStart(2, '0');
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${p(parseInt(get('hour'), 10))}:${get('minute')}:${get('second')}`,
+  };
+}
+
 /** Excel serial-date epoch (1899-12-30, accounting for the 1900 leap-year bug). */
 const SERIAL_EPOCH = Date.UTC(1899, 11, 30);
 

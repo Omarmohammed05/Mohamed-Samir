@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import path from 'path';
 import { existsSync } from 'fs';
 import fs from 'fs/promises';
-import { normalizeDate, todayCairo } from './date';
+import { normalizeDate, nowCairoISO, todayCairo } from './date';
 import type { Entry } from './mock-store';
 
 const EXCEL_PATH = process.env.EXCEL_FILE_PATH || path.join(process.cwd(), 'data', 'entries.xlsx');
@@ -53,7 +53,7 @@ async function ensureFile(): Promise<void> {
   const today = todayCairo();
   const y = new Date(today + 'T00:00:00'); y.setDate(y.getDate() - 1); const yd = y.toISOString().slice(0, 10);
   const y2 = new Date(today + 'T00:00:00'); y2.setDate(y2.getDate() - 2); const y2d = y2.toISOString().slice(0, 10);
-  const now = new Date().toISOString();
+  const now = nowCairoISO();
 
   const seed: string[][] = [
     [today, 'sara@team.com', 'Reviewed Q4 report draft', 'Completed sections 1-3', 'Waiting on finance data', 'Need to sync Monday', now],
@@ -128,7 +128,7 @@ export async function upsertEntryExcel(
     const ws = wb.getWorksheet(SHEET_NAME);
     if (!ws) throw new Error(`Sheet "${SHEET_NAME}" not found`);
 
-    const updatedAt = new Date().toISOString();
+    const updatedAt = nowCairoISO();
     const userLower = user.toLowerCase();
 
     // Find existing row by (User, Date) key
@@ -205,7 +205,7 @@ export async function deleteEntryExcel(user: string, date: string): Promise<bool
         dws.addRow([
           deletedEntry.date, deletedEntry.user, deletedEntry.a, deletedEntry.b,
           deletedEntry.c, deletedEntry.d, deletedEntry.updatedAt,
-          new Date().toISOString(), 'system',
+          nowCairoISO(), 'system',
         ]);
       }
     }

@@ -31,6 +31,7 @@ export const cardEntryCreateSchema = z.object({
   card_id: z.string().min(1, 'Card ID is required'),
   rows: z.array(z.array(z.string())).min(1, 'At least one row is required'),
   duration_seconds: z.number().nullable().optional(),
+  filter: z.string().optional(),
 });
 
 export const cardEntryUpdateSchema = z.object({

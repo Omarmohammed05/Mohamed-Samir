@@ -35,7 +35,7 @@ describe('Google Sheets conditional formatting', () => {
 
   afterEach(() => vi.unstubAllEnvs());
 
-  it('sets both background and text colors on all four out-of-range rules', async () => {
+  it('sets background and text colors on all four out-of-range rules', async () => {
     await applyConditionalFormatting(ranges);
 
     const requests = batchUpdate.mock.calls[0][0].requestBody.requests;
@@ -52,9 +52,9 @@ describe('Google Sheets conditional formatting', () => {
               values: [{ userEnteredValue: `=IFERROR(AND(LEN(TRIM(${column}2&""))>0,OR(VALUE(${column}2)<${min},VALUE(${column}2)>${max})),FALSE)` }],
             },
             format: {
-              backgroundColor: { red: 0.969, green: 0.941, blue: 0.776 }, // #F7F0C6
+              backgroundColor: { red: 245 / 255, green: 234 / 255, blue: 194 / 255 }, // #F5EAC2
               textFormat: {
-                foregroundColor: { red: 122 / 255, green: 106 / 255, blue: 31 / 255 }, // #7A6A1F
+                foregroundColor: { red: 139 / 255, green: 90 / 255, blue: 43 / 255 }, // #8B5A2B
               },
             },
           },
