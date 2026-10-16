@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "U.P. Logs",
+    "appName": "U.P. LOG SHEET",
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
@@ -32,7 +32,7 @@
   },
   "login": {
     "title": "Sign in",
-    "subtitle": "Enter your credentials to access the daily entries",
+    "subtitle": "Enter your credentials to access U.P. LOG SHEET",
     "email": "Email",
     "emailPlaceholder": "you@team.com",
     "password": "Password",
@@ -45,7 +45,7 @@
     "errorRateLimited": "Too many attempts. Try again in a minute.",
     "errorGeneric": "Something went wrong. Please try again.",
     "hintAdmin": "Demo: admin@team.com / admin123",
-    "hintUser": "Demo: sara@team.com / user123"
+    "hintUser": "Demo: omar@team.com / user123"
   },
   "entries": {
     "title": "My Entries",
@@ -127,7 +127,14 @@
     "rangeSaveError": "Failed to save ranges",
     "applyToSheet": "Apply to Sheet",
     "conditionalFormattingSynced": "Conditional formatting applied to Google Sheet",
-    "conditionalFormattingSyncError": "Failed to apply conditional formatting to sheet"
+    "conditionalFormattingSyncError": "Failed to apply conditional formatting to sheet",
+    "cardTimeRanges": "Card Time Ranges",
+    "cardTimeRangesDesc": "Set min and max duration (seconds) per card. Used to color the Duration cell in the Google Sheet only.",
+    "cardRangesSaved": "Card time ranges saved successfully",
+    "cardRangesSaveError": "Failed to save card time ranges",
+    "recolorExisting": "Recolor Existing Entries",
+    "recolorDone": "Existing entries recolored in the sheet",
+    "recolorError": "Failed to recolor existing entries"
   },
   "users": {
     "title": "User Management",
@@ -138,7 +145,9 @@
     "role": "Role",
     "password": "Password",
     "admin": "Admin",
-    "user": "User",
+    "operator": "Operator",
+    "supervisor": "Supervisor",
+    "engineer": "Engineer",
     "addSuccess": "User added successfully",
     "addError": "Failed to add user",
     "updateSuccess": "User updated successfully",
@@ -149,7 +158,8 @@
     "deleteConfirmDescription": "This will permanently remove {email} from the system.",
     "requiresSheets": "User management requires Google Sheets mode (SHEETS_MODE=real). Set SHEETS_MODE=real and add your Google service account credentials.",
     "noUsers": "No users found",
-    "passwordOptional": "Leave blank to keep current"
+    "passwordOptional": "Leave blank to keep current",
+    "user": "User"
   },
   "errors": {
     "404title": "Page Not Found",
@@ -168,7 +178,10 @@
   "nav": {
     "myEntries": "My Entries",
     "admin": "Admin",
-    "cards": "Cards"
+    "cards": "Cards",
+    "history": "History",
+    "review": "Pending Review",
+    "settings": "Settings"
   },
   "cards": {
     "title": "Cards",
@@ -195,6 +208,50 @@
     "allTabsRequired": "Please fill in all tabs before saving",
     "outOfRange": "Value is outside the operating range",
     "rangesSaved": "Ranges saved successfully",
-    "rangesSaveError": "Failed to save ranges"
+    "rangesSaveError": "Failed to save ranges",
+    "engineerNoCreate": "Engineers cannot create entries. Use the Pending Review page to review and approve entries."
+  },
+  "status": {
+    "operator": "Operator",
+    "supervisor": "Supervisor",
+    "engineer": "Engineer"
+  },
+  "history": {
+    "title": "History (Last 4 Days)",
+    "filterCard": "Filter by card",
+    "filterStatus": "Filter by status",
+    "allCards": "All Cards",
+    "allStatuses": "All Statuses",
+    "empty": "No entries in the last 4 days",
+    "operator": "Operator",
+    "supervisor": "Supervisor",
+    "engineer": "Engineer"
+  },
+  "review": {
+    "title": "Pending Review",
+    "description": "Entries waiting for your review. Open an entry to edit values and approve.",
+    "empty": "No entries pending review",
+    "open": "Review",
+    "reviewEntry": "Review Entry",
+    "approve": "Approve",
+    "saveEdit": "Save Edit",
+    "approveSuccess": "Entry approved successfully",
+    "approveError": "Failed to approve entry",
+    "editSuccess": "Entry edited successfully",
+    "editError": "Failed to edit entry"
+  },
+  "settings": {
+    "title": "Settings",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm New Password",
+    "changePassword": "Change Password",
+    "saving": "Saving…",
+    "pwSuccess": "Password changed successfully",
+    "pwError": "Failed to change password",
+    "pwTooShort": "Password must be at least 8 characters",
+    "pwMismatch": "New passwords do not match",
+    "pwSameAsOld": "New password must differ from the current password",
+    "pwHint": "Minimum 8 characters. Must differ from your current password."
   }
 }

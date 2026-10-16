@@ -16,7 +16,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
 
-type ManagedUser = { email: string; name: string; role: 'user' | 'admin' };
+type ManagedUser = { email: string; name: string; role: 'operator' | 'supervisor' | 'engineer' | 'admin' };
 
 type Props = {
   users: ManagedUser[];
@@ -33,7 +33,7 @@ export function UserManager({ users, sheetsMode }: Props) {
   const [form, setForm] = useState({
     email: '',
     name: '',
-    role: 'user' as 'user' | 'admin',
+    role: 'operator' as 'operator' | 'supervisor' | 'engineer' | 'admin',
     password: '',
   });
 
@@ -41,7 +41,7 @@ export function UserManager({ users, sheetsMode }: Props) {
 
   function openAdd() {
     setEditingUser(null);
-    setForm({ email: '', name: '', role: 'user', password: '' });
+    setForm({ email: '', name: '', role: 'operator', password: '' });
     setDialogOpen(true);
   }
 
@@ -141,7 +141,7 @@ export function UserManager({ users, sheetsMode }: Props) {
                   <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
                   <td className="px-4 py-3">
                     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                      {user.role === 'admin' ? t('users.admin') : t('users.user')}
+                      {t(`users.${user.role}`)}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
@@ -201,13 +201,15 @@ export function UserManager({ users, sheetsMode }: Props) {
               <Label htmlFor="user-role">{t('users.role')}</Label>
               <Select
                 value={form.role}
-                onValueChange={(v) => setForm({ ...form, role: v as 'user' | 'admin' })}
+                onValueChange={(v) => setForm({ ...form, role: v as 'operator' | 'supervisor' | 'engineer' | 'admin' })}
               >
                 <SelectTrigger id="user-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">{t('users.user')}</SelectItem>
+                  <SelectItem value="operator">{t('users.operator')}</SelectItem>
+                  <SelectItem value="supervisor">{t('users.supervisor')}</SelectItem>
+                  <SelectItem value="engineer">{t('users.engineer')}</SelectItem>
                   <SelectItem value="admin">{t('users.admin')}</SelectItem>
                 </SelectContent>
               </Select>

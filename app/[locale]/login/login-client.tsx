@@ -39,8 +39,10 @@ export function LoginClient() {
       // Redirect based on role
       if (data.role === 'admin') {
         router.push('/admin');
+      } else if (data.role === 'supervisor' || data.role === 'engineer') {
+        router.push('/review');
       } else {
-        router.push('/entries');
+        router.push('/cards');
       }
       router.refresh();
     } catch {

@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'U.P. Logs',
-    short_name: 'U.P. Logs',
-    description: 'U.P. Logs — submit, track and review your daily equipment readings.',
+    name: 'U.P. LOG SHEET',
+    short_name: 'U.P. LOG SHEET',
+    description: 'U.P. LOG SHEET — submit, track and review your daily equipment readings.',
     start_url: '/en',
     scope: '/',
     display: 'standalone',

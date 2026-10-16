@@ -16,7 +16,10 @@ export default async function LoginPage({
   // Already logged in → redirect
   const session = await getSession();
   if (session) {
-    redirect(`/${locale}/${session.role === 'admin' ? 'admin' : 'entries'}`);
+    const dest = session.role === 'admin' ? 'admin'
+      : (session.role === 'supervisor' || session.role === 'engineer') ? 'review'
+      : 'cards';
+    redirect(`/${locale}/${dest}`);
   }
 
   return (

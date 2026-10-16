@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { normalizeRole } from '@/config/mock-users';
 import type { Session } from './auth';
 
 export async function createSupabaseServerClient() {
@@ -32,7 +33,7 @@ export async function getSupabaseSession(): Promise<Session | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const role = (user.user_metadata?.role as 'user' | 'admin') || 'user';
+  const role = normalizeRole((user.user_metadata?.role as string) || 'user');
   const name = (user.user_metadata?.name as string) || user.email || '';
   return { email: user.email || '', role, name };
 }

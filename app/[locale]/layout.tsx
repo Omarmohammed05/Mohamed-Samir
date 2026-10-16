@@ -16,11 +16,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata = {
+  title: 'U.P. LOG SHEET',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'U.P. Logs',
+    title: 'U.P. LOG SHEET',
   },
   icons: {
     icon: '/icon.svg',

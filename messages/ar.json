@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "U.P. Logs",
+    "appName": "U.P. LOG SHEET",
     "loading": "جارٍ التحميل…",
     "save": "حفظ",
     "cancel": "إلغاء",
@@ -32,7 +32,7 @@
   },
   "login": {
     "title": "تسجيل الدخول",
-    "subtitle": "أدخل بياناتك للوصول إلى السجل اليومي",
+    "subtitle": "أدخل بياناتك للوصول إلى U.P. LOG SHEET",
     "email": "البريد الإلكتروني",
     "emailPlaceholder": "you@team.com",
     "password": "كلمة المرور",
@@ -45,7 +45,7 @@
     "errorRateLimited": "محاولات كثيرة. حاول مرة أخرى بعد دقيقة.",
     "errorGeneric": "حدث خطأ. حاول مرة أخرى.",
     "hintAdmin": "تجريبي: admin@team.com / admin123",
-    "hintUser": "تجريبي: sara@team.com / user123"
+    "hintUser": "تجريبي: omar@team.com / user123"
   },
   "entries": {
     "title": "سجلاتي",
@@ -127,7 +127,14 @@
     "rangeSaveError": "فشل في حفظ النطاقات",
     "applyToSheet": "تطبيق على الشيت",
     "conditionalFormattingSynced": "تم تطبيق التنسيق الشرطي على جوجل شيت",
-    "conditionalFormattingSyncError": "فشل في تطبيق التنسيق الشرطي على الشيت"
+    "conditionalFormattingSyncError": "فشل في تطبيق التنسيق الشرطي على الشيت",
+    "cardTimeRanges": "نطاقات الوقت للبطاقات",
+    "cardTimeRangesDesc": "حدد الحد الأدنى والأقصى للمدة (بالثواني) لكل بطاقة. يُستخدم لتلوين خلية المدة في جوجل شيت فقط.",
+    "cardRangesSaved": "تم حفظ نطاقات وقت البطاقات بنجاح",
+    "cardRangesSaveError": "فشل في حفظ نطاقات وقت البطاقات",
+    "recolorExisting": "إعادة تلوين السجلات الموجودة",
+    "recolorDone": "تم إعادة تلوين السجلات الموجودة في الشيت",
+    "recolorError": "فشل في إعادة تلوين السجلات الموجودة"
   },
   "users": {
     "title": "إدارة المستخدمين",
@@ -138,7 +145,9 @@
     "role": "الدور",
     "password": "كلمة المرور",
     "admin": "مدير",
-    "user": "مستخدم",
+    "operator": "مشغل",
+    "supervisor": "مشرف",
+    "engineer": "مهندس",
     "addSuccess": "تمت إضافة المستخدم بنجاح",
     "addError": "فشل في إضافة المستخدم",
     "updateSuccess": "تم تحديث المستخدم بنجاح",
@@ -149,7 +158,8 @@
     "deleteConfirmDescription": "سيتم حذف {email} نهائيًا من النظام.",
     "requiresSheets": "إدارة المستخدمين تتطلب وضع جوجل شيت (SHEETS_MODE=real). اضبط SHEETS_MODE=real وأضف بيانات اعتماد حساب خدمة جوجل.",
     "noUsers": "لا يوجد مستخدمون",
-    "passwordOptional": "اترك فارغًا للإبقاء على الحالي"
+    "passwordOptional": "اترك فارغًا للإبقاء على الحالي",
+    "user": "مستخدم"
   },
   "errors": {
     "404title": "الصفحة غير موجودة",
@@ -168,7 +178,10 @@
   "nav": {
     "myEntries": "سجلاتي",
     "admin": "الإدارة",
-    "cards": "البطاقات"
+    "cards": "البطاقات",
+    "history": "السجل",
+    "review": "المراجعة المعلقة",
+    "settings": "الإعدادات"
   },
   "cards": {
     "title": "البطاقات",
@@ -195,6 +208,50 @@
     "allTabsRequired": "يرجى ملء جميع التبويبات قبل الحفظ",
     "outOfRange": "القيمة خارج نطاق التشغيل",
     "rangesSaved": "تم حفظ النطاقات بنجاح",
-    "rangesSaveError": "فشل في حفظ النطاقات"
+    "rangesSaveError": "فشل في حفظ النطاقات",
+    "engineerNoCreate": "لا يمكن للمهندسين إنشاء سجلات. استخدم صفحة المراجعة المعلقة لمراجعة السجلات والموافقة عليها."
+  },
+  "status": {
+    "operator": "مشغل",
+    "supervisor": "مشرف",
+    "engineer": "مهندس"
+  },
+  "history": {
+    "title": "السجل (آخر ٤ أيام)",
+    "filterCard": "تصفية حسب البطاقة",
+    "filterStatus": "تصفية حسب الحالة",
+    "allCards": "كل البطاقات",
+    "allStatuses": "كل الحالات",
+    "empty": "لا توجد سجلات في آخر ٤ أيام",
+    "operator": "المشغل",
+    "supervisor": "المشرف",
+    "engineer": "المهندس"
+  },
+  "review": {
+    "title": "المراجعة المعلقة",
+    "description": "السجلات بانتظار مراجعتك. افتح سجلاً لتعديل القيم والموافقة عليه.",
+    "empty": "لا توجد سجلات معلقة للمراجعة",
+    "open": "مراجعة",
+    "reviewEntry": "مراجعة السجل",
+    "approve": "موافقة",
+    "saveEdit": "حفظ التعديل",
+    "approveSuccess": "تمت الموافقة على السجل بنجاح",
+    "approveError": "فشل في الموافقة على السجل",
+    "editSuccess": "تم تعديل السجل بنجاح",
+    "editError": "فشل في تعديل السجل"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور الجديدة",
+    "changePassword": "تغيير كلمة المرور",
+    "saving": "جارٍ الحفظ…",
+    "pwSuccess": "تم تغيير كلمة المرور بنجاح",
+    "pwError": "فشل في تغيير كلمة المرور",
+    "pwTooShort": "يجب أن تكون كلمة المرور ٨ أحرف على الأقل",
+    "pwMismatch": "كلمتا المرور الجديدتان غير متطابقتين",
+    "pwSameAsOld": "يجب أن تختلف كلمة المرور الجديدة عن الحالية",
+    "pwHint": "٨ أحرف على الأقل. يجب أن تختلف عن كلمة المرور الحالية."
   }
 }

@@ -14,6 +14,7 @@ import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { listUsers } from '@/lib/users';
 import { UserManager } from '@/components/user-manager';
 import { RangeSettings } from '@/components/range-settings';
+import { CardTimeRanges } from '@/components/card-time-ranges';
 import Link from 'next/link';
 
 const ADMIN_CACHE_KEY = 'admin-entries';
@@ -29,7 +30,7 @@ export default async function AdminPage({
   const session = await getSession();
 
   if (!session) redirect(`/${locale}/login`);
-  if (session.role !== 'admin') redirect(`/${locale}/entries`);
+  if (session.role !== 'admin') redirect(`/${locale}/cards`);
 
   // Short-lived cache (~10s)
   let cached = getCached<{ entries: Entry[]; warnings: string[] }>(ADMIN_CACHE_KEY);
@@ -49,7 +50,7 @@ export default async function AdminPage({
   const sheetsMode = (process.env.SHEETS_MODE || 'excel') as 'mock' | 'excel' | 'real';
 
   // Fetch users — dynamic from Google Sheets in real mode, mock otherwise
-  let users: { email: string; name: string; role: 'user' | 'admin' }[] = [];
+  let users: { email: string; name: string; role: 'operator' | 'supervisor' | 'engineer' | 'admin' }[] = [];
   if (sheetsMode === 'real') {
     try {
       const allUsers = await listUsers();
@@ -64,7 +65,7 @@ export default async function AdminPage({
   const today = todayCairo();
   const submittedToday = new Set(entries.filter((e) => e.date === today).map((e) => e.user));
   const notSubmitted = users
-    .filter((u) => u.role === 'user' && !submittedToday.has(u.email))
+    .filter((u) => u.role === 'operator' && !submittedToday.has(u.email))
     .map((u) => ({ email: u.email, name: u.name }));
 
   const sheetUrl = process.env.GOOGLE_SHEET_ID
@@ -121,6 +122,7 @@ export default async function AdminPage({
         </div>
 
         <RangeSettings />
+        <CardTimeRanges />
         <UserManager users={users} sheetsMode={sheetsMode} />
       </main>
     </div>
