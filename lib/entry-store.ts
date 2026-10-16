@@ -88,7 +88,9 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
       const status = (err as { status?: number })?.status;
       const retryable = status === 429 || (status && status >= 500);
       if (!retryable || attempt === retries) throw err;
-      await new Promise((r) => setTimeout(r, 2 ** attempt * 500));
+      // Per-minute quota: back off long enough for the window to reset.
+      const delay = status === 429 ? 10_000 * (attempt + 1) : 2 ** attempt * 500;
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw new Error('unreachable');
@@ -140,29 +142,56 @@ function safeParseRows(json: string): string[][] {
   }
 }
 
-async function ensureEntriesTab(): Promise<void> {
+// Shared in-flight promise: the tab is verified/created once per process,
+// and concurrent callers reuse the same check instead of each hitting the API.
+let entriesTabEnsurePromise: Promise<void> | null = null;
+
+export function ensureEntriesTab(): Promise<void> {
+  if (!entriesTabEnsurePromise) {
+    entriesTabEnsurePromise = doEnsureEntriesTab().catch((err) => {
+      entriesTabEnsurePromise = null; // allow retry on the next call
+      throw err;
+    });
+  }
+  return entriesTabEnsurePromise;
+}
+
+async function doEnsureEntriesTab(): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
-  try {
-    await withRetry(() =>
-      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${ENTRIES_TAB}!A1:N1` }),
-    );
-  } catch {
-    await withRetry(() =>
-      sheets.spreadsheets.batchUpdate({
-        spreadsheetId: sheetId,
-        requestBody: { requests: [{ addSheet: { properties: { title: ENTRIES_TAB } } }] },
-      }),
-    );
-    await withRetry(() =>
-      sheets.spreadsheets.values.update({
-        spreadsheetId: sheetId,
-        range: `${ENTRIES_TAB}!A1:N1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [ENTRIES_HEADER] },
-      }),
-    );
+
+  // Check tab existence via spreadsheet metadata — a failed values.get can
+  // mean a transient quota error, not a missing tab.
+  const meta = await withRetry(() =>
+    sheets.spreadsheets.get({
+      spreadsheetId: sheetId,
+      fields: 'sheets.properties.title',
+    }),
+  );
+  const titles = (meta.data.sheets || []).map((s) => s.properties?.title);
+  if (!titles.includes(ENTRIES_TAB)) {
+    try {
+      await withRetry(() =>
+        sheets.spreadsheets.batchUpdate({
+          spreadsheetId: sheetId,
+          requestBody: { requests: [{ addSheet: { properties: { title: ENTRIES_TAB } } }] },
+        }),
+      );
+    } catch (err: unknown) {
+      // A concurrent request may have added the tab first — tolerate that.
+      const msg = String((err as { message?: string })?.message || '');
+      if (!msg.includes('already exists')) throw err;
+    }
   }
+
+  await withRetry(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${ENTRIES_TAB}!A1:N1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [ENTRIES_HEADER] },
+    }),
+  );
 }
 
 // ─── Unified API ───────────────────────────────────────
