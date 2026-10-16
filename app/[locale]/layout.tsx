@@ -20,7 +20,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Daily Entries',
+    title: 'U.P. Logs',
   },
   icons: {
     icon: '/icon.svg',

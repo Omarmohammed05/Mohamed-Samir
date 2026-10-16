@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Save, Loader2, SlidersHorizontal, AlertTriangle } from 'lucide-react';
@@ -38,6 +38,8 @@ export function CardTabs({
   const [tabData, setTabData] = useState<EquipmentTab[]>(tabs);
   const [saving, setSaving] = useState(false);
   const [savingRanges, setSavingRanges] = useState(false);
+  // Track when the operator opened the card to compute entry duration
+  const startTimeRef = useRef<number>(Date.now());
   // A/B filter — every sub-label starts checked (show both)
   const [subFilter, setSubFilter] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -105,12 +107,17 @@ export function CardTabs({
         .filter(([, checked]) => checked)
         .map(([label]) => label)
         .join(', ');
+      // Compute the duration the operator took to fill in the entry
+      const elapsedSec = Math.round((Date.now() - startTimeRef.current) / 1000);
+      const mins = Math.floor(elapsedSec / 60);
+      const secs = elapsedSec % 60;
+      const duration = `${mins}m ${secs}s`;
       const res = await fetch('/api/sheets/card-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'submission', cardId, user: userEmail, rows: allRows,
-          filter: checkedSubs,
+          filter: checkedSubs, duration,
         }),
       });
       if (!res.ok) throw new Error();
@@ -243,7 +250,7 @@ export function CardTabs({
                   onChange={(e) => handleValueChange(activeTab, i, e.target.value)}
                   className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-center text-sm border focus:outline-none ${
                     outOfRange
-                      ? 'border-[#F7F0C6] bg-[#F7F0C6]/20 text-amber-900 dark:text-[#F7F0C6]'
+                      ? 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-semibold'
                       : 'bg-card border-border focus:border-primary'
                   }`}
                 />
@@ -289,7 +296,7 @@ export function CardTabs({
 
       {/* Out-of-range warning */}
       {outOfRangeCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-[#F7F0C6] bg-[#F7F0C6] px-4 py-2 text-sm text-amber-900 dark:text-[#F7F0C6]">
+        <div className="flex items-center gap-2 rounded-lg border border-red-500 bg-red-50 dark:bg-red-950/40 px-4 py-2 text-sm text-red-700 dark:text-red-300 font-medium">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{t('outOfRange')} ({outOfRangeCount})</span>
         </div>

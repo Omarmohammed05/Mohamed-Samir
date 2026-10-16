@@ -3,6 +3,26 @@ import { nowCairoDateTime } from './date';
 import { WARNING_BG, WARNING_FG } from './conditional-formatting';
 import { CARD_TABS } from '@/config/cards';
 
+/**
+ * Metadata columns that precede process values in the matrix layout:
+ *   User, Date, Time, Duration, Engineer, Supervisor
+ * Process values start at the column after these (column G / index 6).
+ */
+const META_COLS = 6;
+const META_HEADERS = ['User', 'Date', 'Time', 'Duration', 'Engineer', 'Supervisor'];
+
+/**
+ * Detects whether an existing sheet uses the old 3-column metadata layout
+ * (User, Date, Time) or the new 6-column layout (adds Duration, Engineer,
+ * Supervisor). Falls back to the old offset for sheets written before the
+ * extra columns existed.
+ */
+function detectColOffset(allData: string[][]): number {
+  const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
+  if (userHeaderIdx >= 0 && allData[userHeaderIdx]?.[3] === 'Duration') return META_COLS;
+  return 3;
+}
+
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
 function getSheetsClient() {
@@ -117,7 +137,7 @@ export type CardSheetData = {
  *   Row 6: Norm     | norm1| norm2| ...
  *   Row 7: Max      | max1 | max2 | ...
  *   Row 8: (blank)
- *   Row 9: User | Date | Time | (header for entry section)
+ *   Row 9: User | Date | Time | Duration | Engineer | Supervisor | (values header) | Filter
  *   Row 10+: submission entries
  */
 export async function readCardSheetData(cardId: string): Promise<CardSheetData> {
@@ -128,10 +148,13 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
     const allData = await getCardTabData(cardId);
     if (allData.length < 7) return { config, latestValues: new Map() };
 
-    // Read tag numbers from row 2 (index 1), starting from column D (index 3)
+    // Detect old (3-col) vs new (6-col) metadata layout
+    const colOffset = detectColOffset(allData);
+
+    // Read tag numbers from row 2 (index 1), starting at the detected offset
     const tagRow = allData[1] || [];
     const tags: string[] = [];
-    for (let c = 3; c < tagRow.length; c++) {
+    for (let c = colOffset; c < tagRow.length; c++) {
       tags.push(tagRow[c] || '');
     }
 
@@ -144,9 +167,9 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
       const tagNo = tags[c];
       if (!tagNo) continue;
       config.set(tagNo, {
-        min: minRow[c + 3] || '',
-        norm: normRow[c + 3] || '',
-        max: maxRow[c + 3] || '',
+        min: minRow[c + colOffset] || '',
+        norm: normRow[c + colOffset] || '',
+        max: maxRow[c + colOffset] || '',
       });
     }
 
@@ -167,7 +190,7 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
         for (let c = 0; c < tags.length; c++) {
           const tagNo = tags[c];
           if (!tagNo) continue;
-          submissions.get(submissionKey)!.set(tagNo, row[c + 3] || '');
+          submissions.get(submissionKey)!.set(tagNo, row[c + colOffset] || '');
         }
       }
     }
@@ -200,14 +223,15 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
     equipmentGroups.get(eq)!.push(row);
   }
 
-  // Build header rows
-  const headerRow: string[] = ['', '', ''];
-  const tagNoRow: string[] = ['Tag No.', '', ''];
-  const unitRow: string[] = ['Unit', '', ''];
-  const descRow: string[] = ['Description', '', ''];
-  const minRow: string[] = ['Min', '', ''];
-  const normRow: string[] = ['Norm', '', ''];
-  const maxRow: string[] = ['Max', '', ''];
+  // Build header rows — META_COLS blank columns precede the tag columns
+  const blanks = Array(META_COLS).fill('');
+  const headerRow: string[] = [...blanks];
+  const tagNoRow: string[] = ['Tag No.', ...Array(META_COLS - 1).fill('')];
+  const unitRow: string[] = ['Unit', ...Array(META_COLS - 1).fill('')];
+  const descRow: string[] = ['Description', ...Array(META_COLS - 1).fill('')];
+  const minRow: string[] = ['Min', ...Array(META_COLS - 1).fill('')];
+  const normRow: string[] = ['Norm', ...Array(META_COLS - 1).fill('')];
+  const maxRow: string[] = ['Max', ...Array(META_COLS - 1).fill('')];
 
   for (const eq of equipmentOrder) {
     const tags = equipmentGroups.get(eq)!;
@@ -226,8 +250,8 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
   const blankRow: string[] = [];
   const totalTags = rows.length;
   // 'Filter' records which A/B checkboxes were checked for each submission
-  const userHeaderRow: string[] = ['User', 'Date', 'Time'];
-  while (userHeaderRow.length < 3 + totalTags) userHeaderRow.push('');
+  const userHeaderRow: string[] = [...META_HEADERS];
+  while (userHeaderRow.length < META_COLS + totalTags) userHeaderRow.push('');
   userHeaderRow.push('Filter');
 
   return [
@@ -250,9 +274,10 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   let submissionRows: string[][] = [];
   try {
     const allData = await getCardTabData(cardId);
+    const oldColOffset = detectColOffset(allData);
     const oldTagRow = allData[1] || [];
     const oldTags: string[] = [];
-    for (let c = 3; c < oldTagRow.length; c++) oldTags.push(oldTagRow[c] || '');
+    for (let c = oldColOffset; c < oldTagRow.length; c++) oldTags.push(oldTagRow[c] || '');
 
     const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
     if (userHeaderIdx >= 0) {
@@ -265,11 +290,12 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
         if (!r[0]) continue;
         const valuesByTag = new Map<string, string>();
         for (let c = 0; c < oldTags.length; c++) {
-          if (oldTags[c]) valuesByTag.set(oldTags[c], r[c + 3] || '');
+          if (oldTags[c]) valuesByTag.set(oldTags[c], r[c + oldColOffset] || '');
         }
-        const newRow = [r[0], r[1] || '', r[2] || ''];
+        // New layout: User, Date, Time, Duration, Engineer, Supervisor, ...values, Filter
+        const newRow = [r[0], r[1] || '', r[2] || '', '', '', ''];
         for (const row of rows) newRow.push(valuesByTag.get(row[1]) ?? '');
-        newRow.push(r[3 + oldTagCount] || ''); // Filter cell
+        newRow.push(r[oldColOffset + oldTagCount] || ''); // Filter cell
         submissionRows.push(newRow);
       }
     }
@@ -302,6 +328,9 @@ export async function saveCardSubmission(
   user: string,
   rows: string[][],
   filter = '',
+  duration = '',
+  userName = '',
+  supervisor = '',
 ): Promise<void> {
   const sheets = getSheetsClient();
   const sheetId = process.env.GOOGLE_SHEET_ID!;
@@ -313,9 +342,10 @@ export async function saveCardSubmission(
   try {
     const data = await getCardTabData(cardId);
     if (data.length > 1 && data[1]?.[0] === 'Tag No.') {
+      const colOffset = detectColOffset(data);
       const tagRow = data[1] || [];
       const sheetTags: string[] = [];
-      for (let c = 3; c < tagRow.length; c++) sheetTags.push((tagRow[c] || '').trim());
+      for (let c = colOffset; c < tagRow.length; c++) sheetTags.push((tagRow[c] || '').trim());
       while (sheetTags.length > 0 && sheetTags[sheetTags.length - 1] === '') sheetTags.pop();
       const clientTags = rows.map((r) => (r[1] || '').trim());
       layoutMatches =
@@ -336,8 +366,10 @@ export async function saveCardSubmission(
   // The row is written explicitly after the last submission rather than via
   // values.append, whose table detection misplaces rows on this matrix layout.
   const { date, time } = nowCairoDateTime();
+  const displayName = userName || user;
 
-  const entryRow: string[] = [user, date, time];
+  // Layout: User (name), Date, Time, Duration, Engineer (name), Supervisor, ...values, Filter
+  const entryRow: string[] = [displayName, date, time, duration, displayName, supervisor];
   for (const row of rows) {
     entryRow.push(row[7] || '');
   }
@@ -372,7 +404,7 @@ export async function saveCardSubmission(
 
 /**
  * Applies conditional formatting to highlight out-of-range process values.
- * Process values are in columns D+ (index 3+), rows 10+ (index 9+).
+ * Process values are in columns G+ (index 6+), rows 10+ (index 9+).
  * Min is in row 5, Max is in row 7 (same column as the process value).
  * Out-of-range cells get the warning palette (pale-yellow background, brown
  * text). Existing rules are removed first so re-applying is idempotent and
@@ -400,13 +432,17 @@ export async function applyCardConditionalFormatting(cardId: string): Promise<vo
     }
   }
 
+  // Process values start at column index META_COLS (column G). The formula
+  // uses the corresponding column letter for the first value column.
+  const colLetter = String.fromCharCode(65 + META_COLS); // 'G'
+
   requests.push({
     addConditionalFormatRule: {
       index: 0,
       rule: {
         ranges: [{
           sheetId: tabId,
-          startColumnIndex: 3,
+          startColumnIndex: META_COLS,
           startRowIndex: 9,
         }],
         booleanRule: {
@@ -414,7 +450,7 @@ export async function applyCardConditionalFormatting(cardId: string): Promise<vo
             type: 'CUSTOM_FORMULA',
             values: [{
               userEnteredValue:
-                '=AND(D10<>"",ISNUMBER(VALUE(D10)),OR(AND(D$5<>"",ISNUMBER(VALUE(D$5)),VALUE(D10)<VALUE(D$5)),AND(D$7<>"",ISNUMBER(VALUE(D$7)),VALUE(D10)>VALUE(D$7))))',
+                `=AND(${colLetter}10<>"",ISNUMBER(VALUE(${colLetter}10)),OR(AND(${colLetter}$5<>"",ISNUMBER(VALUE(${colLetter}$5)),VALUE(${colLetter}10)<VALUE(${colLetter}$5)),AND(${colLetter}$7<>"",ISNUMBER(VALUE(${colLetter}$7)),VALUE(${colLetter}10)>VALUE(${colLetter}$7))))`,
             }],
           },
           format: {

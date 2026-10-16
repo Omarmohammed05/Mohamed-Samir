@@ -1,5 +1,5 @@
-/* Daily Entries — Service Worker (offline app-shell caching) */
-const CACHE_VERSION = 'de-v1';
+/* U.P. Logs — Service Worker (offline app-shell caching) */
+const CACHE_VERSION = 'uplogs-v1';
 const APP_SHELL = [
   '/',
   '/en',
