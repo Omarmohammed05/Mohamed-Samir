@@ -40,11 +40,11 @@ export function CardTabs({
   const [savingRanges, setSavingRanges] = useState(false);
   // Track when the operator opened the card to compute entry duration
   const startTimeRef = useRef<number>(Date.now());
-  // A/B filter — every sub-label starts checked (show both)
+  // A/B filter — sub-labels start unchecked (operator picks which to show)
   const [subFilter, setSubFilter] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const tab of tabs) {
-      for (const sub of tab.subLabels || []) init[sub] = true;
+      for (const sub of tab.subLabels || []) init[sub] = false;
     }
     return init;
   });
@@ -221,9 +221,9 @@ export function CardTabs({
         {currentTab.rows.map((row, i) => {
           if (!isRowVisible(row)) return null;
           const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
-          // In A/B tabs the tag character sits on its own line with the number under it
+          // The tag code sits on its own line with the numbers under it
           const [tagCode, ...tagNumbers] = row.tagNo.split(' ');
-          const stackedTag = Boolean(currentTab.subLabels && tagNumbers.length > 0);
+          const stackedTag = tagNumbers.length > 0;
           return (
             <div key={i} className="flex flex-col gap-1.5">
               {/* Row 1: Tag No + Description */}
