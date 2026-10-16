@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
     clearRateLimit(ip);
     const token = await createSessionToken(session);
-    const res = NextResponse.json({ role: session.role });
+    const res = NextResponse.json({ role: session.role, name: session.name });
     res.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

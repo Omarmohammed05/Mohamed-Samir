@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
-import { MOCK_USERS } from '@/config/mock-users';
+import { MOCK_USERS, normalizeRole, type UserRole } from '@/config/mock-users';
 
 export type Session = {
   email: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   name: string;
 };
 
@@ -23,19 +23,27 @@ function isMock(): boolean {
 export async function mockLogin(email: string, password: string): Promise<Session | null> {
   // In real Sheets mode, authenticate against users stored in Google Sheets
   if (process.env.SHEETS_MODE === 'real') {
-    const { listUsers } = await import('./users');
+    const { listUsers, verifyPassword, isLegacyPlainPassword, updateUser } = await import('./users');
     const users = await listUsers();
     const user = users.find(
-      (u) => u.email === email.toLowerCase().trim() && u.password === password,
+      (u) => u.email === email.toLowerCase().trim() && verifyPassword(password, u.password),
     );
     if (!user) return null;
-    return { email: user.email, role: user.role, name: user.name };
+    // Lazy migration: upgrade legacy plain-text rows to a salted hash
+    if (isLegacyPlainPassword(user.password)) {
+      try {
+        await updateUser(user.email, { password });
+      } catch {
+        // Non-fatal: the login itself already succeeded
+      }
+    }
+    return { email: user.email, role: normalizeRole(user.role), name: user.name };
   }
 
-  const user = MOCK_USERS.find(
-    (u) => u.email === email.toLowerCase().trim() && u.password === password,
-  );
+  const user = MOCK_USERS.find((u) => u.email === email.toLowerCase().trim());
   if (!user) return null;
+  const { verifyMockPassword } = await import('./password-store');
+  if (!(await verifyMockPassword(user, password))) return null;
   return { email: user.email, role: user.role, name: user.name };
 }
 
@@ -54,7 +62,7 @@ export async function getSessionFromToken(token: string): Promise<Session | null
     const { payload } = await jwtVerify(token, SECRET);
     return {
       email: payload.email as string,
-      role: payload.role as 'user' | 'admin',
+      role: normalizeRole(payload.role as string),
       name: payload.name as string,
     };
   } catch {

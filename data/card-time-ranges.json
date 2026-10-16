@@ -1,0 +1,106 @@
+{
+  "F02": {
+    "min_seconds": 45,
+    "max_seconds": 120
+  },
+  "F01": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F03": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F04": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F05": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F06": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F07": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F08": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F09": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F10": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F11": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F12": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F13": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F14": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F15": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F16": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F17": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F18": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F19": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F20": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F21": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F22": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F23": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F24": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F25": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  },
+  "F26": {
+    "min_seconds": 0,
+    "max_seconds": 0
+  }
+}
