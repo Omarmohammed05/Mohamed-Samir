@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { getEntry, updateEntry, type CardEntry } from '@/lib/entry-store';
 import { cardEntryUpdateSchema } from '@/lib/validators';
 import { assertAuthenticated, canEditEntry, canApproveAtStatus } from '@/lib/permissions';
+import { updateCardSubmissionReview } from '@/lib/card-sheets';
 import type { UserRole } from '@/config/mock-users';
 
 /** GET — single entry by ID */
@@ -75,6 +76,24 @@ export async function PUT(
     }
 
     const updated = await updateEntry(id, updates);
+
+    // Sync the reviewer's name to the card tab in Google Sheets
+    // (supplementary — the CardEntries store is the source of truth).
+    if (updated) {
+      const reviewRole = entry.status === 'Operator' ? 'supervisor' : 'engineer';
+      try {
+        await updateCardSubmissionReview(
+          updated.card_id,
+          updated.operator_name,
+          updated.created_at,
+          session.name,
+          reviewRole,
+        );
+      } catch (err) {
+        console.error('[card-entries PUT] Card tab review sync failed:', err instanceof Error ? err.message : 'unknown');
+      }
+    }
+
     return NextResponse.json({ entry: updated });
   }
 

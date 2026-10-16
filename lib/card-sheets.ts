@@ -343,14 +343,18 @@ export async function saveCardSubmission(
     const data = await getCardTabData(cardId);
     if (data.length > 1 && data[1]?.[0] === 'Tag No.') {
       const colOffset = detectColOffset(data);
-      const tagRow = data[1] || [];
-      const sheetTags: string[] = [];
-      for (let c = colOffset; c < tagRow.length; c++) sheetTags.push((tagRow[c] || '').trim());
-      while (sheetTags.length > 0 && sheetTags[sheetTags.length - 1] === '') sheetTags.pop();
-      const clientTags = rows.map((r) => (r[1] || '').trim());
-      layoutMatches =
-        sheetTags.length === clientTags.length &&
-        sheetTags.every((tag, i) => tag === clientTags[i]);
+      // Old 3-column layout (User, Date, Time only) — force a rebuild so the
+      // Duration / Engineer / Supervisor columns are added to the header.
+      if (colOffset === META_COLS) {
+        const tagRow = data[1] || [];
+        const sheetTags: string[] = [];
+        for (let c = colOffset; c < tagRow.length; c++) sheetTags.push((tagRow[c] || '').trim());
+        while (sheetTags.length > 0 && sheetTags[sheetTags.length - 1] === '') sheetTags.pop();
+        const clientTags = rows.map((r) => (r[1] || '').trim());
+        layoutMatches =
+          sheetTags.length === clientTags.length &&
+          sheetTags.every((tag, i) => tag === clientTags[i]);
+      }
     }
   } catch {
     /* tab is empty */
@@ -368,8 +372,10 @@ export async function saveCardSubmission(
   const { date, time } = nowCairoDateTime();
   const displayName = userName || user;
 
-  // Layout: User (name), Date, Time, Duration, Engineer (name), Supervisor, ...values, Filter
-  const entryRow: string[] = [displayName, date, time, duration, displayName, supervisor];
+  // Layout: User (name), Date, Time, Duration, Engineer, Supervisor, ...values, Filter
+  // Engineer and Supervisor are left blank on submission — they are filled in
+  // when the respective reviewer approves (updateCardSubmissionReview).
+  const entryRow: string[] = [displayName, date, time, duration, '', ''];
   for (const row of rows) {
     entryRow.push(row[7] || '');
   }
@@ -466,6 +472,65 @@ export async function applyCardConditionalFormatting(cardId: string): Promise<vo
     sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
       requestBody: { requests },
+    }),
+  );
+}
+
+/**
+ * Updates the Supervisor or Engineer column of a submission row in a card tab
+ * after the respective reviewer approves. The row is identified by the
+ * operator's display name and the submission date (optionally the time for an
+ * exact match). Only the 6-column metadata layout is supported; old 3-column
+ * sheets are skipped (they are rebuilt on the next submission).
+ */
+export async function updateCardSubmissionReview(
+  cardId: string,
+  operatorName: string,
+  createdAt: string,
+  reviewerName: string,
+  role: 'supervisor' | 'engineer',
+): Promise<void> {
+  const sheets = getSheetsClient();
+  const sheetId = process.env.GOOGLE_SHEET_ID!;
+
+  const data = await getCardTabData(cardId);
+  const colOffset = detectColOffset(data);
+  if (colOffset !== META_COLS) return; // old layout — skip
+
+  const userHeaderIdx = data.findIndex((r) => r[0] === 'User');
+  if (userHeaderIdx < 0) return;
+
+  const { date, time } = nowCairoDateTime(new Date(createdAt));
+
+  // Try an exact match (operator name + date + time), then fall back to the
+  // last row matching operator name + date.
+  let matchIdx = -1;
+  let fallbackIdx = -1;
+  for (let i = userHeaderIdx + 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row || !row[0] || row[0] === 'User') continue;
+    if (row[0] === operatorName && row[1] === date) {
+      fallbackIdx = i;
+      if (row[2] === time) {
+        matchIdx = i;
+        break;
+      }
+    }
+  }
+  const targetIdx = matchIdx >= 0 ? matchIdx : fallbackIdx;
+  if (targetIdx < 0) return;
+
+  // Supervisor = column F (index 5), Engineer = column E (index 4)
+  const colIndex = role === 'supervisor' ? 5 : 4;
+  const colLetter = String.fromCharCode(65 + colIndex);
+  const rowNum = targetIdx + 1; // 1-based
+
+  await withRetry(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${cardId}!${colLetter}${rowNum}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [[reviewerName]] },
     }),
   );
 }
