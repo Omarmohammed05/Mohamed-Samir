@@ -1,28 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { saveCardSubmission, saveCardConfig, readCardSheetLayout } from '@/lib/card-sheets';
+import { saveCardSubmission, saveCardConfig, readCardSheetData, backfillContainerIds } from '@/lib/card-sheets';
+import { mergeCardData, emptySheetData, CARD_DATA } from '@/lib/card-merge';
+import { isValidCardId } from '@/config/cards';
 
-/** GET — read-only sync: returns the card tab's latest layout from the Sheet */
+export const dynamic = 'force-dynamic';
+
+/** Fresh card layout for the Sync button / entry auto-fetch. */
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const cardId = req.nextUrl.searchParams.get('cardId');
-  if (!cardId) {
-    return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
+  const cardId = (req.nextUrl.searchParams.get('cardId') || '').toUpperCase();
+  if (!isValidCardId(cardId)) {
+    return NextResponse.json({ error: 'Invalid card' }, { status: 400 });
   }
 
+  let sheetData = emptySheetData();
   try {
-    const tabs = await readCardSheetLayout(cardId.toUpperCase());
-    return NextResponse.json({ tabs });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to read sheet' },
-      { status: 500 },
-    );
+    sheetData = await readCardSheetData(cardId);
+    // Additive ID migration, same as the page render path
+    if (sheetData.containers.some((c) => !c.id)) {
+      await backfillContainerIds(cardId);
+      sheetData = await readCardSheetData(cardId);
+    }
+  } catch {
+    // Tab doesn't exist or Sheets API unavailable — merge falls back to defaults
   }
+
+  const tabs = mergeCardData(CARD_DATA[cardId] || [], sheetData);
+  return NextResponse.json({ tabs });
 }
 
 export async function POST(req: NextRequest) {

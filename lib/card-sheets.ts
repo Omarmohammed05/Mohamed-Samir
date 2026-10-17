@@ -5,11 +5,11 @@ import { CARD_TABS } from '@/config/cards';
 
 /**
  * Metadata columns that precede process values in the matrix layout:
- *   User, Date, Time, Duration, Engineer, Supervisor
+ *   User, Date, Time, Duration, Supervisor, Engineer
  * Process values start at the column after these (column G / index 6).
  */
 const META_COLS = 6;
-const META_HEADERS = ['User', 'Date', 'Time', 'Duration', 'Engineer', 'Supervisor'];
+const META_HEADERS = ['User', 'Date', 'Time', 'Duration', 'Supervisor', 'Engineer'];
 
 /**
  * Detects whether an existing sheet uses the old 3-column metadata layout
@@ -121,63 +121,29 @@ async function ensureTabExists(tabName: string): Promise<void> {
   }
 }
 
+export type SheetContainer = {
+  /** Permanent unique ID — stable across refreshes and sheet reorganization */
+  id: string;
+  equipment: string;
+  tagNo: string;
+  unit: string;
+  description: string;
+  min: string;
+  norm: string;
+  max: string;
+  hidden: boolean;
+};
+
 export type CardSheetData = {
   config: Map<string, { min: string; norm: string; max: string; hidden: boolean }>;
+  /** Full container layout read from the sheet (source of truth when non-empty) */
+  containers: SheetContainer[];
   latestValues: Map<string, string>;
 };
 
 /**
- * Reads the full matrix layout from a card tab and returns it as equipment
- * tabs (label + rows). Read-only — never writes to the sheet. Used by the
- * Sync button to receive the latest data from the Sheets tab.
- */
-export async function readCardSheetLayout(cardId: string): Promise<
-  { label: string; rows: { tagNo: string; unit: string; description: string; min: string; norm: string; max: string; hidden: boolean }[] }[]
-> {
-  try {
-    const allData = await getCardTabData(cardId);
-    if (allData.length < 7) return [];
-
-    const colOffset = detectColOffset(allData);
-    const headerRow = allData[0] || [];
-    const tagRow = allData[1] || [];
-    const unitRow = allData[2] || [];
-    const descRow = allData[3] || [];
-    const minRow = allData[4] || [];
-    const normRow = allData[5] || [];
-    const maxRow = allData[6] || [];
-    const hiddenRow = allData[7] || [];
-
-    const tabs: { label: string; rows: { tagNo: string; unit: string; description: string; min: string; norm: string; max: string; hidden: boolean }[] }[] = [];
-    let current: (typeof tabs)[number] | null = null;
-
-    for (let c = colOffset; c < tagRow.length; c++) {
-      const tagNo = (tagRow[c] || '').trim();
-      if (!tagNo) continue;
-      const label = (headerRow[c] || '').trim();
-      if (label) {
-        current = { label, rows: [] };
-        tabs.push(current);
-      }
-      if (!current) continue; // tag column before any equipment header
-      current.rows.push({
-        tagNo,
-        unit: unitRow[c] || '',
-        description: descRow[c] || '',
-        min: minRow[c] || '',
-        norm: normRow[c] || '',
-        max: maxRow[c] || '',
-        hidden: (hiddenRow[c] || '').trim() === '1',
-      });
-    }
-    return tabs;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Reads the matrix-layout sheet and returns config + latest submission values.
+ * Parses the matrix-layout rows into config + containers + submissions.
+ * Pure function (no API calls) so the read logic is unit-testable.
  * Matrix layout:
  *   Row 1: Equipment header (names in first column of each group)
  *   Row 2: Tag No.  | tag1 | tag2 | ...
@@ -186,84 +152,158 @@ export async function readCardSheetLayout(cardId: string): Promise<
  *   Row 5: Min      | min1 | min2 | ...
  *   Row 6: Norm     | norm1| norm2| ...
  *   Row 7: Max      | max1 | max2 | ...
- *   Row 8: (blank)
- *   Row 9: User | Date | Time | Duration | Engineer | Supervisor | (values header) | Filter
- *   Row 10+: submission entries
+ *   Row 8: Hidden   | 1/blank per container
+ *   Row 9: ID       | uuid per container (blank on sheets not yet migrated)
+ *   Row 10: User | Date | Time | Duration | Supervisor | Engineer | (values header) | Filter
+ *   Row 11+: submission entries
  */
-export async function readCardSheetData(cardId: string): Promise<CardSheetData> {
+export function parseCardTabData(allData: string[][]): {
+  config: Map<string, { min: string; norm: string; max: string; hidden: boolean }>;
+  containers: SheetContainer[];
+  submissions: Map<string, Map<string, string>>;
+} {
   const config = new Map<string, { min: string; norm: string; max: string; hidden: boolean }>();
+  const containers: SheetContainer[] = [];
   const submissions = new Map<string, Map<string, string>>();
 
-  try {
-    const allData = await getCardTabData(cardId);
-    if (allData.length < 7) return { config, latestValues: new Map() };
+  if (allData.length < 7) return { config, containers, submissions };
 
-    // Detect old (3-col) vs new (6-col) metadata layout
-    const colOffset = detectColOffset(allData);
+  // Detect old (3-col) vs new (6-col) metadata layout
+  const colOffset = detectColOffset(allData);
 
-    // Read tag numbers from row 2 (index 1), starting at the detected offset
-    const tagRow = allData[1] || [];
-    const tags: string[] = [];
-    for (let c = colOffset; c < tagRow.length; c++) {
-      tags.push(tagRow[c] || '');
-    }
-
-    // Read config from rows 5-7 (index 4-6): Min, Norm, Max
-    const minRow = allData[4] || [];
-    const normRow = allData[5] || [];
-    const maxRow = allData[6] || [];
-    // Hidden flags live in row 8 (index 7) — blank on older sheets
-    const hiddenRow = allData[7] || [];
-
-    for (let c = 0; c < tags.length; c++) {
-      const tagNo = tags[c];
-      if (!tagNo) continue;
-      config.set(tagNo, {
-        min: minRow[c + colOffset] || '',
-        norm: normRow[c + colOffset] || '',
-        max: maxRow[c + colOffset] || '',
-        hidden: (hiddenRow[c + colOffset] || '').trim() === '1',
-      });
-    }
-
-    // Read submissions (rows after User header)
-    const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
-    if (userHeaderIdx >= 0) {
-      for (let r = userHeaderIdx + 1; r < allData.length; r++) {
-        const row = allData[r];
-        if (!row || !row[0] || row[0] === 'User') continue;
-        const date = row[1] || '';
-        const time = row[2] || '';
-        const submissionKey = `${date} ${time}`;
-
-        if (!submissions.has(submissionKey)) {
-          submissions.set(submissionKey, new Map());
-        }
-
-        for (let c = 0; c < tags.length; c++) {
-          const tagNo = tags[c];
-          if (!tagNo) continue;
-          submissions.get(submissionKey)!.set(tagNo, row[c + colOffset] || '');
-        }
-      }
-    }
-  } catch {
-    /* tab doesn't exist — return empty maps */
+  // Read tag numbers from row 2 (index 1), starting at the detected offset
+  const tagRow = allData[1] || [];
+  const tags: string[] = [];
+  for (let c = colOffset; c < tagRow.length; c++) {
+    tags.push(tagRow[c] || '');
   }
 
-  const sortedDates = Array.from(submissions.keys()).sort().reverse();
-  const latestValues = sortedDates.length > 0
-    ? submissions.get(sortedDates[0])!
-    : new Map<string, string>();
+  // Read equipment groups from the header row (index 0). The equipment name
+  // sits in the first column of each group; the rest are blank.
+  const headerRow = allData[0] || [];
+  // Read config from rows 5-7 (index 4-6): Min, Norm, Max
+  const unitRow = allData[2] || [];
+  const descRow = allData[3] || [];
+  const minRow = allData[4] || [];
+  const normRow = allData[5] || [];
+  const maxRow = allData[6] || [];
+  // Hidden flags live in row 8 (index 7) — blank on older sheets
+  const hiddenRow = allData[7] || [];
+  // Permanent container IDs live in the row whose first cell is 'ID' —
+  // located by label (not row index) so merged/blank headers can't shift it
+  const idRowIdx = allData.findIndex((r) => r[0] === 'ID');
+  const idRow = idRowIdx >= 0 ? allData[idRowIdx] || [] : [];
 
-  return { config, latestValues };
+  let currentEquipment = '';
+  for (let c = 0; c < tags.length; c++) {
+    const tagNo = tags[c];
+    if (!tagNo) continue;
+    const col = c + colOffset;
+    const eq = headerRow[col] || '';
+    if (eq) currentEquipment = eq;
+    const min = minRow[col] || '';
+    const norm = normRow[col] || '';
+    const max = maxRow[col] || '';
+    const hidden = (hiddenRow[col] || '').trim() === '1';
+    config.set(tagNo, { min, norm, max, hidden });
+    containers.push({
+      id: (idRow[col] || '').trim(),
+      equipment: currentEquipment,
+      tagNo,
+      unit: unitRow[col] || '',
+      description: descRow[col] || '',
+      min,
+      norm,
+      max,
+      hidden,
+    });
+  }
+
+  // Read submissions (rows after User header)
+  const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
+  if (userHeaderIdx >= 0) {
+    for (let r = userHeaderIdx + 1; r < allData.length; r++) {
+      const row = allData[r];
+      if (!row || !row[0] || row[0] === 'User') continue;
+      const date = row[1] || '';
+      const time = row[2] || '';
+      const submissionKey = `${date} ${time}`;
+
+      if (!submissions.has(submissionKey)) {
+        submissions.set(submissionKey, new Map());
+      }
+
+      for (let c = 0; c < tags.length; c++) {
+        const tagNo = tags[c];
+        if (!tagNo) continue;
+        submissions.get(submissionKey)!.set(tagNo, row[c + colOffset] || '');
+      }
+    }
+  }
+
+  return { config, containers, submissions };
 }
 
 /**
- * Builds the matrix layout rows from card data.
- * rows: [[equipment, tagNo, unit, description, min, norm, max], ...]
+ * Reads the matrix-layout sheet and returns config + latest submission values.
  */
-function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[][] {
+export async function readCardSheetData(cardId: string): Promise<CardSheetData> {
+  try {
+    const allData = await getCardTabData(cardId);
+    const { config, containers, submissions } = parseCardTabData(allData);
+
+    const sortedDates = Array.from(submissions.keys()).sort().reverse();
+    const latestValues = sortedDates.length > 0
+      ? submissions.get(sortedDates[0])!
+      : new Map<string, string>();
+
+    return { config, containers, latestValues };
+  } catch {
+    /* tab doesn't exist or Sheets API unavailable — return empty maps */
+    return { config: new Map(), containers: [], latestValues: new Map() };
+  }
+}
+
+/** Generates a permanent unique container ID (UUID). */
+function generateContainerId(): string {
+  return globalThis.crypto.randomUUID();
+}
+
+/**
+ * Assigns a permanent ID to every container row, preserving identity across
+ * rewrites. rows: [[equipment, tagNo, unit, description, min, norm, max, hidden?, id?]]
+ * A row that carries its ID keeps it; otherwise the sheet's existing ID for
+ * that tag is reused (stable across reorganization); only containers with
+ * neither get a fresh UUID. Two rows ending up with the same ID is a collision
+ * and aborts the save with an explicit sync error.
+ */
+export function resolveContainerIds(
+  rows: string[][],
+  existingIdsByTag: Map<string, string>,
+): string[][] {
+  const seen = new Set<string>();
+  const resolved: string[][] = [];
+  for (const r of rows) {
+    let row = r;
+    // Backfill the hidden flag when the caller didn't send it
+    if (row.length < 8) row = [...row, ''];
+    let id = String(row[8] ?? '').trim();
+    if (!id) id = existingIdsByTag.get(String(row[1] ?? '').trim()) ?? '';
+    if (!id) id = generateContainerId();
+    if (seen.has(id)) {
+      throw new Error(`Duplicate container ID detected: ${id}`);
+    }
+    seen.add(id);
+    resolved.push([...row.slice(0, 8), id]);
+  }
+  return resolved;
+}
+
+/**
+ * Builds the matrix layout rows from card data (pure — exported for tests).
+ * rows: [[equipment, tagNo, unit, description, min, norm, max, hidden?, id?], ...]
+ */
+export function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[][] {
   // Group by equipment (preserve order)
   const equipmentOrder: string[] = [];
   const equipmentGroups: Map<string, string[][]> = new Map();
@@ -286,8 +326,10 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
   const normRow: string[] = ['Norm', ...Array(META_COLS - 1).fill('')];
   const maxRow: string[] = ['Max', ...Array(META_COLS - 1).fill('')];
   // Hidden markers: '1' under a tag column means that container is hidden.
-  // Occupies the row between Max and the User header (blank on older sheets).
+  // Occupies the row between Max and the ID row (blank on older sheets).
   const hiddenRow: string[] = ['Hidden', ...Array(META_COLS - 1).fill('')];
+  // Permanent container IDs — one UUID per tag column, labelled 'ID'
+  const idRow: string[] = ['ID', ...Array(META_COLS - 1).fill('')];
 
   for (const eq of equipmentOrder) {
     const tags = equipmentGroups.get(eq)!;
@@ -301,6 +343,7 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
       normRow.push(tag[5]);
       maxRow.push(tag[6]);
       hiddenRow.push(tag[7] === '1' ? '1' : '');
+      idRow.push(tag[8] ?? '');
     }
   }
 
@@ -312,7 +355,7 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
 
   return [
     headerRow, tagNoRow, unitRow, descRow, minRow, normRow, maxRow,
-    hiddenRow, userHeaderRow, ...submissionRows,
+    hiddenRow, idRow, userHeaderRow, ...submissionRows,
   ];
 }
 
@@ -330,8 +373,14 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   let submissionRows: string[][] = [];
   // Existing hidden flags — preserved when the incoming rows don't carry them
   const oldHiddenByTag = new Map<string, boolean>();
+  // Previous extent of the written area — used to pad the atomic update below
+  let oldRows = 0;
+  let oldCols = 0;
+  let allData: string[][] = [];
   try {
-    const allData = await getCardTabData(cardId);
+    allData = await getCardTabData(cardId);
+    oldRows = allData.length;
+    for (const r of allData) oldCols = Math.max(oldCols, r.length);
     const oldColOffset = detectColOffset(allData);
     const oldTagRow = allData[1] || [];
     const oldTags: string[] = [];
@@ -355,7 +404,7 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
         for (let c = 0; c < oldTags.length; c++) {
           if (oldTags[c]) valuesByTag.set(oldTags[c], r[c + oldColOffset] || '');
         }
-        // New layout: User, Date, Time, Duration, Engineer, Supervisor, ...values, Filter
+        // New layout: User, Date, Time, Duration, Supervisor, Engineer, ...values, Filter
         const newRow = [r[0], r[1] || '', r[2] || '', '', '', ''];
         for (const row of rows) newRow.push(valuesByTag.get(row[1]) ?? '');
         newRow.push(r[oldColOffset + oldTagCount] || ''); // Filter cell
@@ -366,25 +415,223 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
     /* no existing data */
   }
 
-  // Rows from Save Ranges carry the hidden flag at index 7; rows rewritten
-  // during a submission don't — fill those from the sheet's existing flags.
+  // Permanent container IDs: reuse the sheet's existing ID per tag so a
+  // rewrite never changes a container's identity. Duplicate IDs in the sheet
+  // are a collision (data integrity risk) and abort the save.
+  const existingIdsByTag = new Map<string, string>();
+  {
+    const seenIds = new Set<string>();
+    for (const c of parseCardTabData(allData).containers) {
+      if (!c.id) continue;
+      if (seenIds.has(c.id)) {
+        throw new Error(`Duplicate container ID in sheet (${c.tagNo}): ${c.id}`);
+      }
+      seenIds.add(c.id);
+      existingIdsByTag.set(c.tagNo, c.id);
+    }
+  }
+
+  // Rows from Save Ranges carry the hidden flag at index 7 and the container
+  // ID at index 8; rows rewritten during a submission carry neither — hidden
+  // comes from the sheet's existing flags, the ID from the sheet or is new.
   const rowsWithHidden = rows.map((r) =>
     r.length > 7 ? r : [...r, oldHiddenByTag.get(String(r[1])) ? '1' : ''],
   );
+  const rowsWithIds = resolveContainerIds(rowsWithHidden, existingIdsByTag);
 
-  const allRows = buildMatrixRows(rowsWithHidden, submissionRows);
+  const allRows = buildMatrixRows(rowsWithIds, submissionRows);
 
-  await withRetry(() =>
-    sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:ZZ` }),
-  );
+  // Remove leftover merged cells from the original hand-made sheet — merges in
+  // the header row silently swallow the equipment group labels written by the
+  // rewrite, which makes containers reappear under a "Custom" tab in the app.
+  try {
+    const meta = await withRetry(() =>
+      sheets.spreadsheets.get({
+        spreadsheetId: sheetId,
+        fields: 'sheets(properties.title,merges)',
+      }),
+    );
+    const merges =
+      meta.data.sheets?.find((s) => s.properties?.title === cardId)?.merges || [];
+    if (merges.length > 0) {
+      await withRetry(() =>
+        sheets.spreadsheets.batchUpdate({
+          spreadsheetId: sheetId,
+          requestBody: {
+            requests: merges.map((range) => ({ unmergeCells: { range } })),
+          },
+        }),
+      );
+    }
+  } catch {
+    /* best-effort — the rewrite below still works without it */
+  }
+
+  // Single atomic update — no clear-then-write gap. The old clear+update pair
+  // left an empty window mid-save during which page loads read an empty sheet
+  // and fell back to the default layout, making saved containers vanish.
+  // Padding to the previous extent blanks stale cells within the same write.
+  const width = allRows.reduce((w, r) => Math.max(w, r.length), oldCols);
+  const padded = allRows.map((r) => [...r, ...Array(Math.max(0, width - r.length)).fill('')]);
+  while (padded.length < oldRows) padded.push(Array(width).fill(''));
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: `${cardId}!A1`,
       valueInputOption: 'RAW',
-      requestBody: { values: allRows },
+      requestBody: { values: padded },
     }),
   );
+
+  // Read-back verification — the save is only reported as successful when
+  // every written container, matched by its permanent ID, is actually in the
+  // sheet with the expected tag. Distinguishes "the API accepted the write"
+  // from "the data is really there", so a silent partial write surfaces as a
+  // sync error in the UI instead of a success toast.
+  const verifyParsed = parseCardTabData(await getCardTabData(cardId));
+  const verifyById = new Map(
+    verifyParsed.containers.filter((c) => c.id).map((c) => [c.id, c]),
+  );
+  for (const row of rowsWithIds) {
+    const c = verifyById.get(String(row[8]));
+    if (!c || c.tagNo.trim() !== String(row[1]).trim()) {
+      throw new Error(
+        `Save verification failed for container ${row[1] || '(no tag)'} — the sheet does not match the saved layout`,
+      );
+    }
+  }
+}
+
+/** Converts a 0-based column index to A1 notation (0='A', 26='AA', ...). */
+function colToA1(idx: number): string {
+  let s = '';
+  let n = idx;
+  while (n >= 0) {
+    s = String.fromCharCode((n % 26) + 65) + s;
+    n = Math.floor(n / 26) - 1;
+  }
+  return s;
+}
+
+/**
+ * Additive migration: assigns permanent IDs to existing containers that lack
+ * one, without touching any other cell. On a sheet with no ID row, a single
+ * row labelled 'ID' is inserted below the Hidden row and filled; on a sheet
+ * that already has one, only the blank ID cells are filled (existing IDs are
+ * preserved verbatim). Never rewrites container data — identity is added, not
+ * moved. Returns how many IDs were assigned and how many container columns
+ * could not be identified safely (left untouched for manual review).
+ */
+export async function backfillContainerIds(
+  cardId: string,
+): Promise<{ assigned: number; skipped: number }> {
+  const sheets = getSheetsClient();
+  const sheetId = process.env.GOOGLE_SHEET_ID!;
+
+  let allData: string[][] = [];
+  try {
+    allData = await getCardTabData(cardId);
+  } catch {
+    return { assigned: 0, skipped: 0 }; // tab doesn't exist — nothing to do
+  }
+  if (allData.length < 2) return { assigned: 0, skipped: 0 };
+
+  const colOffset = detectColOffset(allData);
+  const tagRow = allData[1] || [];
+  // Container columns = tag columns that actually carry a tag
+  const tagCols: number[] = [];
+  for (let c = colOffset; c < tagRow.length; c++) {
+    if ((tagRow[c] || '').trim()) tagCols.push(c);
+  }
+  if (tagCols.length === 0) return { assigned: 0, skipped: 0 };
+
+  const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
+  const idRowIdx = allData.findIndex((r) => r[0] === 'ID');
+
+  if (idRowIdx < 0) {
+    // No ID row yet — insert one at index 8 (directly below the Hidden row,
+    // above the User header). Abort when the layout is unexpected: an ID row
+    // landing below the User header would be misread as a submission.
+    if (userHeaderIdx >= 0 && userHeaderIdx < 8) {
+      return { assigned: 0, skipped: tagCols.length };
+    }
+    const sheetMeta = await withRetry(() =>
+      sheets.spreadsheets.get({
+        spreadsheetId: sheetId,
+        fields: 'sheets(properties.title,properties.sheetId)',
+      }),
+    );
+    const tabNumericId = sheetMeta.data.sheets?.find(
+      (s) => s.properties?.title === cardId,
+    )?.properties?.sheetId;
+    if (tabNumericId === undefined) {
+      return { assigned: 0, skipped: tagCols.length };
+    }
+
+    await withRetry(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [{
+            insertDimension: {
+              range: { sheetId: tabNumericId, dimension: 'ROWS', startIndex: 8, endIndex: 9 },
+            },
+          }],
+        },
+      }),
+    );
+
+    const idRow: string[] = Array(Math.max(8, colOffset)).fill('');
+    idRow[0] = 'ID';
+    for (const col of tagCols) {
+      while (idRow.length <= col) idRow.push('');
+      idRow[col] = generateContainerId();
+    }
+    await withRetry(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `${cardId}!A9`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [idRow] },
+      }),
+    );
+    return { assigned: tagCols.length, skipped: 0 };
+  }
+
+  // ID row exists — fill only the blank ID cells. One contiguous update of the
+  // ID row segment; cells that already have an ID are written back verbatim.
+  const idRow = allData[idRowIdx] || [];
+  const existingIds = new Set(
+    idRow.map((cell) => (cell || '').trim()).filter(Boolean),
+  );
+  let assigned = 0;
+  const first = tagCols[0];
+  const last = tagCols[tagCols.length - 1];
+  const segment: string[] = [];
+  for (let c = first; c <= last; c++) {
+    const current = (idRow[c] || '').trim();
+    if (!current && (tagRow[c] || '').trim()) {
+      let id = generateContainerId();
+      while (existingIds.has(id)) id = generateContainerId();
+      existingIds.add(id);
+      segment.push(id);
+      assigned++;
+    } else {
+      segment.push(current);
+    }
+  }
+  if (assigned > 0) {
+    const row = idRowIdx + 1; // 1-based
+    await withRetry(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `${cardId}!${colToA1(first)}${row}:${colToA1(last)}${row}`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [segment] },
+      }),
+    );
+  }
+  return { assigned, skipped: 0 };
 }
 
 /**
@@ -441,8 +688,8 @@ export async function saveCardSubmission(
   const { date, time } = nowCairoDateTime();
   const displayName = userName || user;
 
-  // Layout: User (name), Date, Time, Duration, Engineer, Supervisor, ...values, Filter
-  // Engineer and Supervisor are left blank on submission — they are filled in
+  // Layout: User (name), Date, Time, Duration, Supervisor, Engineer, ...values, Filter
+  // Supervisor and Engineer are left blank on submission — they are filled in
   // when the respective reviewer approves (updateCardSubmissionReview).
   const entryRow: string[] = [displayName, date, time, duration, '', ''];
   for (const row of rows) {
@@ -507,9 +754,19 @@ export async function applyCardConditionalFormatting(cardId: string): Promise<vo
     }
   }
 
-  // Process values start at column index META_COLS (column G). The formula
-  // uses the corresponding column letter for the first value column.
+  // Process values start at column index META_COLS (column G) on the first
+  // row after the User header. The header block grows when the ID row is
+  // inserted, so the row is derived from the sheet instead of hardcoded.
   const colLetter = String.fromCharCode(65 + META_COLS); // 'G'
+  let startRowIndex = 9; // fallback: layout without an ID row
+  try {
+    const data = await getCardTabData(cardId);
+    const userHeaderIdx = data.findIndex((r) => r[0] === 'User');
+    if (userHeaderIdx >= 0) startRowIndex = userHeaderIdx + 1;
+  } catch {
+    /* keep fallback */
+  }
+  const anchorRow = startRowIndex + 1; // 1-based row the relative formula anchors to
 
   requests.push({
     addConditionalFormatRule: {
@@ -518,14 +775,14 @@ export async function applyCardConditionalFormatting(cardId: string): Promise<vo
         ranges: [{
           sheetId: tabId,
           startColumnIndex: META_COLS,
-          startRowIndex: 9,
+          startRowIndex,
         }],
         booleanRule: {
           condition: {
             type: 'CUSTOM_FORMULA',
             values: [{
               userEnteredValue:
-                `=AND(${colLetter}10<>"",ISNUMBER(VALUE(${colLetter}10)),OR(AND(${colLetter}$5<>"",ISNUMBER(VALUE(${colLetter}$5)),VALUE(${colLetter}10)<VALUE(${colLetter}$5)),AND(${colLetter}$7<>"",ISNUMBER(VALUE(${colLetter}$7)),VALUE(${colLetter}10)>VALUE(${colLetter}$7))))`,
+                `=AND(${colLetter}${anchorRow}<>"",ISNUMBER(VALUE(${colLetter}${anchorRow})),OR(AND(${colLetter}$5<>"",ISNUMBER(VALUE(${colLetter}$5)),VALUE(${colLetter}${anchorRow})<VALUE(${colLetter}$5)),AND(${colLetter}$7<>"",ISNUMBER(VALUE(${colLetter}$7)),VALUE(${colLetter}${anchorRow})>VALUE(${colLetter}$7))))`,
             }],
           },
           format: {
@@ -589,8 +846,8 @@ export async function updateCardSubmissionReview(
   const targetIdx = matchIdx >= 0 ? matchIdx : fallbackIdx;
   if (targetIdx < 0) return;
 
-  // Supervisor = column F (index 5), Engineer = column E (index 4)
-  const colIndex = role === 'supervisor' ? 5 : 4;
+  // Supervisor = column E (index 4), Engineer = column F (index 5)
+  const colIndex = role === 'supervisor' ? 4 : 5;
   const colLetter = String.fromCharCode(65 + colIndex);
   const rowNum = targetIdx + 1; // 1-based
 
