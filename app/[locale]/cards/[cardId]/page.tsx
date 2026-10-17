@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getSession } from '@/lib/auth';
 import { isValidCardId } from '@/config/cards';
 import { CARD_DATA, type EquipmentTab, type CardInputRow } from '@/config/card-data';
-import { readCardSheetData, type CardSheetData, type SheetContainer } from '@/lib/card-sheets';
+import { readCardSheetData, backfillContainerIds, type CardSheetData, type SheetContainer } from '@/lib/card-sheets';
 import { Header } from '@/components/header';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
@@ -24,12 +24,20 @@ function mergeCardData(
   }
 
   // Index sheet containers by tagNo so we can look up saved config and detect
-  // which containers exist in the sheet (the source of truth).
-  const sheetByTag = new Map<string, SheetContainer>();
-  for (const c of sheetData.containers) sheetByTag.set(c.tagNo, c);
+  // which containers exist in the sheet (the source of truth). Tags may be
+  // duplicated, so each tag keeps a list; a default row matches the first
+  // sheet container not claimed yet.
+  const sheetByTag = new Map<string, SheetContainer[]>();
+  for (const c of sheetData.containers) {
+    const list = sheetByTag.get(c.tagNo) || [];
+    list.push(c);
+    sheetByTag.set(c.tagNo, list);
+  }
 
-  // Track which sheet containers are accounted for by default rows
-  const coveredTags = new Set<string>();
+  // Track which sheet containers are accounted for (by permanent ID, falling
+  // back to tag when a container has no ID yet)
+  const covered = new Set<string>();
+  const coveredKey = (c: SheetContainer) => c.id || c.tagNo;
 
   // Start from the default tab structure (preserves ids, labels, subLabels,
   // tab order, and row order). Replace each row's config with the sheet's
@@ -38,10 +46,13 @@ function mergeCardData(
     ...tab,
     rows: tab.rows
       .map((row): CardInputRow | null => {
-        const sheet = sheetByTag.get(row.tagNo);
+        const sheet = (sheetByTag.get(row.tagNo) || []).find(
+          (c) => !covered.has(coveredKey(c)),
+        );
         if (!sheet) return null; // deleted from sheet
-        coveredTags.add(row.tagNo);
+        covered.add(coveredKey(sheet));
         return {
+          id: sheet.id, // permanent ID — carried through every save
           tagNo: sheet.tagNo,
           unit: sheet.unit,
           description: sheet.description,
@@ -64,13 +75,14 @@ function mergeCardData(
   for (const tab of resultTabs) tabByLabel.set(tab.label, tab);
 
   for (const c of sheetData.containers) {
-    if (coveredTags.has(c.tagNo)) continue;
+    if (covered.has(coveredKey(c))) continue;
 
     const targetTab =
       (c.equipment ? tabByLabel.get(c.equipment) : undefined) ??
       resultTabs[resultTabs.length - 1];
     if (!targetTab) continue;
     targetTab.rows.push({
+      id: c.id, // permanent ID — carried through every save
       tagNo: c.tagNo,
       unit: c.unit,
       description: c.description,
@@ -108,6 +120,13 @@ export default async function CardDetailPage({
   let sheetData: CardSheetData = { config: new Map(), containers: [], latestValues: new Map() };
   try {
     sheetData = await readCardSheetData(id);
+    // Additive migration: the first load after this update assigns permanent
+    // IDs to existing containers that lack one (no container data is touched).
+    // Re-read so the rendered rows carry their IDs into the next save.
+    if (sheetData.containers.some((c) => !c.id)) {
+      await backfillContainerIds(id);
+      sheetData = await readCardSheetData(id);
+    }
   } catch {
     // Tab doesn't exist or Sheets API not available — use defaults
   }

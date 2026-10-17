@@ -124,7 +124,9 @@ export function CardTabs({
     const allRows: string[][] = [];
     for (const tab of data) {
       for (const row of tab.rows) {
-        allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '']);
+        // The container's permanent ID rides along so identity survives
+        // sheet reorganization (row position / tag renames never orphan it)
+        allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '', row.id || '']);
       }
     }
     const res = await fetch('/api/sheets/card-data', {
@@ -168,24 +170,34 @@ export function CardTabs({
   }
 
   function handleAddContainer(values: ContainerEditValues) {
+    // Generate the permanent ID once, at creation — a retried save re-sends
+    // the same ID and updates the same record instead of duplicating it.
     const next = tabData.map((tab, i) =>
       i === activeTab
-        ? { ...tab, rows: [...tab.rows, { ...values, value: '' }] }
+        ? { ...tab, rows: [...tab.rows, { ...values, value: '', id: crypto.randomUUID() }] }
         : tab,
     );
     applyAndPersist(next, t('containerAdded'));
   }
 
   function handleUndoChanges() {
-    // Restore the last saved layout, keeping current process values by tag
+    // Restore the last saved layout, keeping current process values — matched
+    // by permanent ID first (survives tag edits), falling back to tag
+    const valuesById = new Map<string, string>();
     const valuesByTag = new Map<string, string>();
     for (const tab of tabData) {
-      for (const row of tab.rows) valuesByTag.set(row.tagNo, row.value || '');
+      for (const row of tab.rows) {
+        if (row.id) valuesById.set(row.id, row.value || '');
+        valuesByTag.set(row.tagNo, row.value || '');
+      }
     }
     setTabData(
       savedTabs.map((tab) => ({
         ...tab,
-        rows: tab.rows.map((row) => ({ ...row, value: valuesByTag.get(row.tagNo) ?? '' })),
+        rows: tab.rows.map((row) => ({
+          ...row,
+          value: (row.id ? valuesById.get(row.id) : undefined) ?? valuesByTag.get(row.tagNo) ?? '',
+        })),
       })),
     );
   }

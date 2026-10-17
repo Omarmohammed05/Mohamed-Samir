@@ -1,4 +1,6 @@
 export type CardInputRow = {
+  /** Permanent container ID from the sheet — identity across reorganization */
+  id?: string;
   tagNo: string;
   unit: string;
   description: string;
