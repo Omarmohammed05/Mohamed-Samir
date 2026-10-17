@@ -9,6 +9,7 @@ import { Link } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { CardTabs } from '@/components/card-tabs';
+import { AutoSync } from '@/components/auto-sync';
 
 function mergeCardData(
   defaultTabs: EquipmentTab[],
@@ -136,6 +137,7 @@ export default async function CardDetailPage({
   return (
     <div className="min-h-screen bg-background">
       <Header session={session} />
+      <AutoSync />
       <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6 min-w-0">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon">

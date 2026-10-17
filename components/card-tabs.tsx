@@ -70,6 +70,33 @@ export function CardTabs({
   const [savedTabs, setSavedTabs] = useState<EquipmentTab[]>(tabs);
   const hasLayoutChanges = layoutOf(tabData) !== layoutOf(savedTabs);
 
+  // Auto-sync: when a refresh delivers a new layout from the server, adopt it.
+  // In-progress input values are carried over (by permanent ID, then tag);
+  // unsaved layout edits or an in-flight save always win over the server copy
+  // so a background sync never clobbers what the user is working on.
+  useEffect(() => {
+    if (layoutOf(tabs) === layoutOf(savedTabs)) return; // nothing new
+    if (hasLayoutChanges || saving || savingRanges) return; // mid-edit / mid-save
+    const valuesById = new Map<string, string>();
+    const valuesByTag = new Map<string, string>();
+    for (const tab of tabData) {
+      for (const row of tab.rows) {
+        if (row.id) valuesById.set(row.id, row.value || '');
+        valuesByTag.set(row.tagNo, row.value || '');
+      }
+    }
+    const merged = tabs.map((tab) => ({
+      ...tab,
+      rows: tab.rows.map((row) => ({
+        ...row,
+        value: (row.id ? valuesById.get(row.id) : undefined) ?? valuesByTag.get(row.tagNo) ?? '',
+      })),
+    }));
+    setSavedTabs(merged);
+    setTabData(merged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs]);
+
   // Hidden fill-in timer — uses timestamp, not a counter
   const timerStartRef = useRef<number | null>(null);
   useEffect(() => {
