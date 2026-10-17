@@ -119,41 +119,57 @@ export function CardTabs({
     });
   }
 
+  /** Persists the container layout to the sheet so changes survive navigation */
+  async function persistLayout(data: EquipmentTab[]) {
+    const allRows: string[][] = [];
+    for (const tab of data) {
+      for (const row of tab.rows) {
+        allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '']);
+      }
+    }
+    const res = await fetch('/api/sheets/card-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'config', cardId, rows: allRows }),
+    });
+    if (!res.ok) throw new Error('Failed');
+    setSavedTabs(data);
+  }
+
+  /** Applies a layout change locally and persists it to the sheet immediately */
+  function applyAndPersist(next: EquipmentTab[]) {
+    setTabData(next);
+    return persistLayout(next).catch(() => toast.error(t('rangesSaveError')));
+  }
+
   function handleToggleHidden(tabIndex: number, rowIndex: number) {
     const wasHidden = !!tabData[tabIndex]?.rows[rowIndex]?.hidden;
-    setTabData((prev) => {
-      const next = [...prev];
-      next[tabIndex] = {
-        ...next[tabIndex],
-        rows: next[tabIndex].rows.map((row, i) =>
-          i === rowIndex ? { ...row, hidden: !row.hidden } : row,
-        ),
-      };
-      return next;
-    });
+    const next = tabData.map((tab, i) =>
+      i === tabIndex
+        ? { ...tab, rows: tab.rows.map((row, j) => (j === rowIndex ? { ...row, hidden: !row.hidden } : row)) }
+        : tab,
+    );
+    void applyAndPersist(next);
     toast.success(wasHidden ? t('containerShown') : t('containerHidden'));
   }
 
   function handleDeleteRow(tabIndex: number, rowIndex: number) {
-    setTabData((prev) => {
-      const next = [...prev];
-      next[tabIndex] = {
-        ...next[tabIndex],
-        rows: next[tabIndex].rows.filter((_, i) => i !== rowIndex),
-      };
-      return next;
-    });
+    const next = tabData.map((tab, i) =>
+      i === tabIndex
+        ? { ...tab, rows: tab.rows.filter((_, j) => j !== rowIndex) }
+        : tab,
+    );
+    void applyAndPersist(next);
     toast.success(t('containerDeleted'));
   }
 
   function handleAddContainer(values: ContainerEditValues) {
-    setTabData((prev) =>
-      prev.map((tab, i) =>
-        i === activeTab
-          ? { ...tab, rows: [...tab.rows, { ...values, value: '' }] }
-          : tab,
-      ),
+    const next = tabData.map((tab, i) =>
+      i === activeTab
+        ? { ...tab, rows: [...tab.rows, { ...values, value: '' }] }
+        : tab,
     );
+    void applyAndPersist(next);
     toast.success(t('containerAdded'));
   }
 
@@ -174,16 +190,12 @@ export function CardTabs({
   function handleDialogSave(values: ContainerEditValues) {
     if (!editingRow) return;
     const { tabIndex, rowIndex } = editingRow;
-    setTabData((prev) => {
-      const next = [...prev];
-      next[tabIndex] = {
-        ...next[tabIndex],
-        rows: next[tabIndex].rows.map((row, i) =>
-          i === rowIndex ? { ...row, ...values } : row,
-        ),
-      };
-      return next;
-    });
+    const next = tabData.map((tab, i) =>
+      i === tabIndex
+        ? { ...tab, rows: tab.rows.map((row, j) => (j === rowIndex ? { ...row, ...values } : row)) }
+        : tab,
+    );
+    void applyAndPersist(next);
     toast.success(t('containerUpdated'));
   }
 
@@ -243,19 +255,7 @@ export function CardTabs({
   async function handleSaveRanges() {
     setSavingRanges(true);
     try {
-      const allRows: string[][] = [];
-      for (const tab of tabData) {
-        for (const row of tab.rows) {
-          allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '']);
-        }
-      }
-      const res = await fetch('/api/sheets/card-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'config', cardId, rows: allRows }),
-      });
-      if (!res.ok) throw new Error();
-      setSavedTabs(tabData);
+      await persistLayout(tabData);
       toast.success(t('rangesSaved'));
     } catch {
       toast.error(t('rangesSaveError'));
