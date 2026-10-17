@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2, Plus, Undo2 } from 'lucide-react';
+import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2, Plus, Undo2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EquipmentTab } from '@/config/card-data';
@@ -13,7 +13,9 @@ import { ContainerEditDialog, type ContainerEditValues } from '@/components/cont
 /** Layout fields that make up a persisted container config (values excluded) */
 function layoutOf(tabs: EquipmentTab[]): string {
   return JSON.stringify(
-    tabs.map((tab) => tab.rows.map((r) => [r.tagNo, r.description, r.unit, r.min, r.norm, r.max])),
+    tabs.map((tab) =>
+      tab.rows.map((r) => [r.tagNo, r.description, r.unit, r.min, r.norm, r.max, !!r.hidden]),
+    ),
   );
 }
 
@@ -81,7 +83,8 @@ export function CardTabs({
     setSubFilter((prev) => ({ ...prev, [sub]: !prev[sub] }));
   }
 
-  function isRowVisible(row: { group?: string }): boolean {
+  function isRowVisible(row: { group?: string; hidden?: boolean }): boolean {
+    if (row.hidden) return false;
     return !row.group || !!subFilter[row.group];
   }
 
@@ -114,6 +117,21 @@ export function CardTabs({
       };
       return next;
     });
+  }
+
+  function handleToggleHidden(tabIndex: number, rowIndex: number) {
+    const wasHidden = !!tabData[tabIndex]?.rows[rowIndex]?.hidden;
+    setTabData((prev) => {
+      const next = [...prev];
+      next[tabIndex] = {
+        ...next[tabIndex],
+        rows: next[tabIndex].rows.map((row, i) =>
+          i === rowIndex ? { ...row, hidden: !row.hidden } : row,
+        ),
+      };
+      return next;
+    });
+    toast.success(wasHidden ? t('containerShown') : t('containerHidden'));
   }
 
   function handleDeleteRow(tabIndex: number, rowIndex: number) {
@@ -228,7 +246,7 @@ export function CardTabs({
       const allRows: string[][] = [];
       for (const tab of tabData) {
         for (const row of tab.rows) {
-          allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max]);
+          allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '']);
         }
       }
       const res = await fetch('/api/sheets/card-data', {
@@ -345,16 +363,24 @@ export function CardTabs({
       {/* Equipment rows in a card container */}
       <div className="rounded-xl bg-primary/10 p-3 sm:p-5 flex flex-col gap-3">
         {currentTab.rows.map((row, i) => {
-          if (!isRowVisible(row)) return null;
+          // A/B group filter applies to everyone; hidden rows render
+          // only for admins in edit mode (so they can unhide)
+          if (row.group && !subFilter[row.group]) return null;
+          if (row.hidden && !(editMode && isAdmin)) return null;
           const outOfRange = isOutOfRange(row.value || '', row.min, row.max);
           // The tag code sits on its own line with the numbers under it
           const [tagCode, ...tagNumbers] = row.tagNo.split(' ');
           const stackedTag = tagNumbers.length > 0;
           return (
-            <div key={i} className="flex flex-col gap-1.5">
+            <div key={i} className={`flex flex-col gap-1.5 ${row.hidden ? 'opacity-50' : ''}`}>
               {/* Edit-mode actions per container */}
               {editMode && (
-                <div className="flex justify-end gap-1">
+                <div className="flex justify-end gap-1 items-center">
+                  {row.hidden && (
+                    <span className="text-xs font-medium text-muted-foreground px-1">
+                      {t('hiddenBadge')}
+                    </span>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -364,6 +390,16 @@ export function CardTabs({
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     {t('editContainer')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 rounded-lg"
+                    onClick={() => handleToggleHidden(activeTab, i)}
+                  >
+                    {row.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    {row.hidden ? t('unhideContainer') : t('hideContainer')}
                   </Button>
                   <Button
                     type="button"

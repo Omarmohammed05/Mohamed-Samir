@@ -23,6 +23,7 @@ function mergeCardData(
         min: savedConfig?.min ?? row.min,
         norm: savedConfig?.norm ?? row.norm,
         max: savedConfig?.max ?? row.max,
+        hidden: savedConfig?.hidden ?? false,
         value: '',
       };
     }),
