@@ -121,8 +121,21 @@ async function ensureTabExists(tabName: string): Promise<void> {
   }
 }
 
+export type SheetContainer = {
+  equipment: string;
+  tagNo: string;
+  unit: string;
+  description: string;
+  min: string;
+  norm: string;
+  max: string;
+  hidden: boolean;
+};
+
 export type CardSheetData = {
   config: Map<string, { min: string; norm: string; max: string; hidden: boolean }>;
+  /** Full container layout read from the sheet (source of truth when non-empty) */
+  containers: SheetContainer[];
   latestValues: Map<string, string>;
 };
 
@@ -142,11 +155,12 @@ export type CardSheetData = {
  */
 export async function readCardSheetData(cardId: string): Promise<CardSheetData> {
   const config = new Map<string, { min: string; norm: string; max: string; hidden: boolean }>();
+  const containers: SheetContainer[] = [];
   const submissions = new Map<string, Map<string, string>>();
 
   try {
     const allData = await getCardTabData(cardId);
-    if (allData.length < 7) return { config, latestValues: new Map() };
+    if (allData.length < 7) return { config, containers, latestValues: new Map() };
 
     // Detect old (3-col) vs new (6-col) metadata layout
     const colOffset = detectColOffset(allData);
@@ -158,21 +172,39 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
       tags.push(tagRow[c] || '');
     }
 
+    // Read equipment groups from the header row (index 0). The equipment name
+    // sits in the first column of each group; the rest are blank.
+    const headerRow = allData[0] || [];
     // Read config from rows 5-7 (index 4-6): Min, Norm, Max
+    const unitRow = allData[2] || [];
+    const descRow = allData[3] || [];
     const minRow = allData[4] || [];
     const normRow = allData[5] || [];
     const maxRow = allData[6] || [];
     // Hidden flags live in row 8 (index 7) — blank on older sheets
     const hiddenRow = allData[7] || [];
 
+    let currentEquipment = '';
     for (let c = 0; c < tags.length; c++) {
       const tagNo = tags[c];
       if (!tagNo) continue;
-      config.set(tagNo, {
-        min: minRow[c + colOffset] || '',
-        norm: normRow[c + colOffset] || '',
-        max: maxRow[c + colOffset] || '',
-        hidden: (hiddenRow[c + colOffset] || '').trim() === '1',
+      const col = c + colOffset;
+      const eq = headerRow[col] || '';
+      if (eq) currentEquipment = eq;
+      const min = minRow[col] || '';
+      const norm = normRow[col] || '';
+      const max = maxRow[col] || '';
+      const hidden = (hiddenRow[col] || '').trim() === '1';
+      config.set(tagNo, { min, norm, max, hidden });
+      containers.push({
+        equipment: currentEquipment,
+        tagNo,
+        unit: unitRow[col] || '',
+        description: descRow[col] || '',
+        min,
+        norm,
+        max,
+        hidden,
       });
     }
 
@@ -206,7 +238,7 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
     ? submissions.get(sortedDates[0])!
     : new Map<string, string>();
 
-  return { config, latestValues };
+  return { config, containers, latestValues };
 }
 
 /**
