@@ -70,6 +70,33 @@ export function CardTabs({
   const [savedTabs, setSavedTabs] = useState<EquipmentTab[]>(tabs);
   const hasLayoutChanges = layoutOf(tabData) !== layoutOf(savedTabs);
 
+  // Auto-sync: when a refresh delivers a new layout from the server, adopt it.
+  // In-progress input values are carried over (by permanent ID, then tag);
+  // unsaved layout edits or an in-flight save always win over the server copy
+  // so a background sync never clobbers what the user is working on.
+  useEffect(() => {
+    if (layoutOf(tabs) === layoutOf(savedTabs)) return; // nothing new
+    if (hasLayoutChanges || saving || savingRanges) return; // mid-edit / mid-save
+    const valuesById = new Map<string, string>();
+    const valuesByTag = new Map<string, string>();
+    for (const tab of tabData) {
+      for (const row of tab.rows) {
+        if (row.id) valuesById.set(row.id, row.value || '');
+        valuesByTag.set(row.tagNo, row.value || '');
+      }
+    }
+    const merged = tabs.map((tab) => ({
+      ...tab,
+      rows: tab.rows.map((row) => ({
+        ...row,
+        value: (row.id ? valuesById.get(row.id) : undefined) ?? valuesByTag.get(row.tagNo) ?? '',
+      })),
+    }));
+    setSavedTabs(merged);
+    setTabData(merged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs]);
+
   // Hidden fill-in timer — uses timestamp, not a counter
   const timerStartRef = useRef<number | null>(null);
   useEffect(() => {
@@ -119,54 +146,85 @@ export function CardTabs({
     });
   }
 
+  /** Persists the container layout to the sheet so changes survive navigation */
+  async function persistLayout(data: EquipmentTab[]) {
+    const allRows: string[][] = [];
+    for (const tab of data) {
+      for (const row of tab.rows) {
+        // The container's permanent ID rides along so identity survives
+        // sheet reorganization (row position / tag renames never orphan it)
+        allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '', row.id || '']);
+      }
+    }
+    const res = await fetch('/api/sheets/card-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'config', cardId, rows: allRows }),
+    });
+    if (!res.ok) throw new Error('Failed');
+    setSavedTabs(data);
+  }
+
+  /** Applies a layout change locally and persists it to the sheet immediately.
+   * The success toast waits for the sheet write so "saved" means saved — the
+   * write takes a few seconds, and navigating back before it lands shows the
+   * container as gone. */
+  function applyAndPersist(next: EquipmentTab[], successMessage: string) {
+    setTabData(next);
+    const toastId = toast.loading(t('saving'));
+    persistLayout(next)
+      .then(() => toast.success(successMessage, { id: toastId }))
+      .catch(() => toast.error(t('rangesSaveError'), { id: toastId }));
+  }
+
   function handleToggleHidden(tabIndex: number, rowIndex: number) {
     const wasHidden = !!tabData[tabIndex]?.rows[rowIndex]?.hidden;
-    setTabData((prev) => {
-      const next = [...prev];
-      next[tabIndex] = {
-        ...next[tabIndex],
-        rows: next[tabIndex].rows.map((row, i) =>
-          i === rowIndex ? { ...row, hidden: !row.hidden } : row,
-        ),
-      };
-      return next;
-    });
-    toast.success(wasHidden ? t('containerShown') : t('containerHidden'));
+    const next = tabData.map((tab, i) =>
+      i === tabIndex
+        ? { ...tab, rows: tab.rows.map((row, j) => (j === rowIndex ? { ...row, hidden: !row.hidden } : row)) }
+        : tab,
+    );
+    applyAndPersist(next, wasHidden ? t('containerShown') : t('containerHidden'));
   }
 
   function handleDeleteRow(tabIndex: number, rowIndex: number) {
-    setTabData((prev) => {
-      const next = [...prev];
-      next[tabIndex] = {
-        ...next[tabIndex],
-        rows: next[tabIndex].rows.filter((_, i) => i !== rowIndex),
-      };
-      return next;
-    });
-    toast.success(t('containerDeleted'));
+    const next = tabData.map((tab, i) =>
+      i === tabIndex
+        ? { ...tab, rows: tab.rows.filter((_, j) => j !== rowIndex) }
+        : tab,
+    );
+    applyAndPersist(next, t('containerDeleted'));
   }
 
   function handleAddContainer(values: ContainerEditValues) {
-    setTabData((prev) =>
-      prev.map((tab, i) =>
-        i === activeTab
-          ? { ...tab, rows: [...tab.rows, { ...values, value: '' }] }
-          : tab,
-      ),
+    // Generate the permanent ID once, at creation — a retried save re-sends
+    // the same ID and updates the same record instead of duplicating it.
+    const next = tabData.map((tab, i) =>
+      i === activeTab
+        ? { ...tab, rows: [...tab.rows, { ...values, value: '', id: crypto.randomUUID() }] }
+        : tab,
     );
-    toast.success(t('containerAdded'));
+    applyAndPersist(next, t('containerAdded'));
   }
 
   function handleUndoChanges() {
-    // Restore the last saved layout, keeping current process values by tag
+    // Restore the last saved layout, keeping current process values — matched
+    // by permanent ID first (survives tag edits), falling back to tag
+    const valuesById = new Map<string, string>();
     const valuesByTag = new Map<string, string>();
     for (const tab of tabData) {
-      for (const row of tab.rows) valuesByTag.set(row.tagNo, row.value || '');
+      for (const row of tab.rows) {
+        if (row.id) valuesById.set(row.id, row.value || '');
+        valuesByTag.set(row.tagNo, row.value || '');
+      }
     }
     setTabData(
       savedTabs.map((tab) => ({
         ...tab,
-        rows: tab.rows.map((row) => ({ ...row, value: valuesByTag.get(row.tagNo) ?? '' })),
+        rows: tab.rows.map((row) => ({
+          ...row,
+          value: (row.id ? valuesById.get(row.id) : undefined) ?? valuesByTag.get(row.tagNo) ?? '',
+        })),
       })),
     );
   }
@@ -174,17 +232,12 @@ export function CardTabs({
   function handleDialogSave(values: ContainerEditValues) {
     if (!editingRow) return;
     const { tabIndex, rowIndex } = editingRow;
-    setTabData((prev) => {
-      const next = [...prev];
-      next[tabIndex] = {
-        ...next[tabIndex],
-        rows: next[tabIndex].rows.map((row, i) =>
-          i === rowIndex ? { ...row, ...values } : row,
-        ),
-      };
-      return next;
-    });
-    toast.success(t('containerUpdated'));
+    const next = tabData.map((tab, i) =>
+      i === tabIndex
+        ? { ...tab, rows: tab.rows.map((row, j) => (j === rowIndex ? { ...row, ...values } : row)) }
+        : tab,
+    );
+    applyAndPersist(next, t('containerUpdated'));
   }
 
   async function handleSaveValues() {
@@ -243,19 +296,7 @@ export function CardTabs({
   async function handleSaveRanges() {
     setSavingRanges(true);
     try {
-      const allRows: string[][] = [];
-      for (const tab of tabData) {
-        for (const row of tab.rows) {
-          allRows.push([tab.label, row.tagNo, row.unit, row.description, row.min, row.norm, row.max, row.hidden ? '1' : '']);
-        }
-      }
-      const res = await fetch('/api/sheets/card-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'config', cardId, rows: allRows }),
-      });
-      if (!res.ok) throw new Error();
-      setSavedTabs(tabData);
+      await persistLayout(tabData);
       toast.success(t('rangesSaved'));
     } catch {
       toast.error(t('rangesSaveError'));
