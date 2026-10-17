@@ -5,11 +5,11 @@ import { CARD_TABS } from '@/config/cards';
 
 /**
  * Metadata columns that precede process values in the matrix layout:
- *   User, Date, Time, Duration, Engineer, Supervisor
+ *   User, Date, Time, Duration, Supervisor, Engineer
  * Process values start at the column after these (column G / index 6).
  */
 const META_COLS = 6;
-const META_HEADERS = ['User', 'Date', 'Time', 'Duration', 'Engineer', 'Supervisor'];
+const META_HEADERS = ['User', 'Date', 'Time', 'Duration', 'Supervisor', 'Engineer'];
 
 /**
  * Detects whether an existing sheet uses the old 3-column metadata layout
@@ -154,7 +154,7 @@ export type CardSheetData = {
  *   Row 7: Max      | max1 | max2 | ...
  *   Row 8: Hidden   | 1/blank per container
  *   Row 9: ID       | uuid per container (blank on sheets not yet migrated)
- *   Row 10: User | Date | Time | Duration | Engineer | Supervisor | (values header) | Filter
+ *   Row 10: User | Date | Time | Duration | Supervisor | Engineer | (values header) | Filter
  *   Row 11+: submission entries
  */
 export function parseCardTabData(allData: string[][]): {
@@ -404,7 +404,7 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
         for (let c = 0; c < oldTags.length; c++) {
           if (oldTags[c]) valuesByTag.set(oldTags[c], r[c + oldColOffset] || '');
         }
-        // New layout: User, Date, Time, Duration, Engineer, Supervisor, ...values, Filter
+        // New layout: User, Date, Time, Duration, Supervisor, Engineer, ...values, Filter
         const newRow = [r[0], r[1] || '', r[2] || '', '', '', ''];
         for (const row of rows) newRow.push(valuesByTag.get(row[1]) ?? '');
         newRow.push(r[oldColOffset + oldTagCount] || ''); // Filter cell
@@ -688,8 +688,8 @@ export async function saveCardSubmission(
   const { date, time } = nowCairoDateTime();
   const displayName = userName || user;
 
-  // Layout: User (name), Date, Time, Duration, Engineer, Supervisor, ...values, Filter
-  // Engineer and Supervisor are left blank on submission — they are filled in
+  // Layout: User (name), Date, Time, Duration, Supervisor, Engineer, ...values, Filter
+  // Supervisor and Engineer are left blank on submission — they are filled in
   // when the respective reviewer approves (updateCardSubmissionReview).
   const entryRow: string[] = [displayName, date, time, duration, '', ''];
   for (const row of rows) {
@@ -846,8 +846,8 @@ export async function updateCardSubmissionReview(
   const targetIdx = matchIdx >= 0 ? matchIdx : fallbackIdx;
   if (targetIdx < 0) return;
 
-  // Supervisor = column F (index 5), Engineer = column E (index 4)
-  const colIndex = role === 'supervisor' ? 5 : 4;
+  // Supervisor = column E (index 4), Engineer = column F (index 5)
+  const colIndex = role === 'supervisor' ? 4 : 5;
   const colLetter = String.fromCharCode(65 + colIndex);
   const rowNum = targetIdx + 1; // 1-based
 
