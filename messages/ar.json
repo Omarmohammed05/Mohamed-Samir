@@ -43,9 +43,7 @@
     "signingIn": "جارٍ الدخول…",
     "errorInvalid": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
     "errorRateLimited": "محاولات كثيرة. حاول مرة أخرى بعد دقيقة.",
-    "errorGeneric": "حدث خطأ. حاول مرة أخرى.",
-    "hintAdmin": "تجريبي: admin@team.com / admin123",
-    "hintUser": "تجريبي: omar@team.com / user123"
+    "errorGeneric": "حدث خطأ. حاول مرة أخرى."
   },
   "entries": {
     "title": "سجلاتي",
@@ -209,7 +207,24 @@
     "outOfRange": "القيمة خارج نطاق التشغيل",
     "rangesSaved": "تم حفظ النطاقات بنجاح",
     "rangesSaveError": "فشل في حفظ النطاقات",
-    "engineerNoCreate": "لا يمكن للمهندسين إنشاء سجلات. استخدم صفحة المراجعة المعلقة لمراجعة السجلات والموافقة عليها."
+    "engineerNoCreate": "لا يمكن للمهندسين إنشاء سجلات. استخدم صفحة المراجعة المعلقة لمراجعة السجلات والموافقة عليها.",
+    "editModeOff": "وضع التعديل",
+    "editModeOn": "جارٍ التعديل",
+    "editContainer": "تعديل الحاوية",
+    "addContainer": "إضافة حاوية",
+    "containerAdded": "تمت إضافة الحاوية. اضغط حفظ النطاقات للحفظ.",
+    "undoChanges": "تراجع عن التغييرات",
+    "hideContainer": "إخفاء",
+    "unhideContainer": "إظهار",
+    "containerHidden": "تم إخفاء الحاوية. اضغط حفظ النطاقات للحفظ.",
+    "containerShown": "تم إظهار الحاوية. اضغط حفظ النطاقات للحفظ.",
+    "hiddenBadge": "مخفية",
+    "deleteContainer": "حذف",
+    "containerDeleted": "تم حذف الحاوية. اضغط حفظ النطاقات للحفظ.",
+    "containerUpdated": "تم تحديث الحاوية. اضغط حفظ النطاقات للحفظ.",
+    "group": "المجموعة",
+    "groupPlaceholder": "اتركه فارغاً للصف المشترك",
+    "cancel": "إلغاء"
   },
   "status": {
     "operator": "مشغل",

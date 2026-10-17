@@ -9,6 +9,8 @@ export type CardInputRow = {
   /** Sub-label (from the tab's `subLabels`) this row belongs to.
    *  Rows without a group are always visible (shared equipment). */
   group?: string;
+  /** Hidden containers are invisible to non-admins; admins see them in edit mode. */
+  hidden?: boolean;
 };
 
 export type EquipmentTab = {

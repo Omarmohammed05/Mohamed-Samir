@@ -122,7 +122,7 @@ async function ensureTabExists(tabName: string): Promise<void> {
 }
 
 export type CardSheetData = {
-  config: Map<string, { min: string; norm: string; max: string }>;
+  config: Map<string, { min: string; norm: string; max: string; hidden: boolean }>;
   latestValues: Map<string, string>;
 };
 
@@ -141,7 +141,7 @@ export type CardSheetData = {
  *   Row 10+: submission entries
  */
 export async function readCardSheetData(cardId: string): Promise<CardSheetData> {
-  const config = new Map<string, { min: string; norm: string; max: string }>();
+  const config = new Map<string, { min: string; norm: string; max: string; hidden: boolean }>();
   const submissions = new Map<string, Map<string, string>>();
 
   try {
@@ -162,6 +162,8 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
     const minRow = allData[4] || [];
     const normRow = allData[5] || [];
     const maxRow = allData[6] || [];
+    // Hidden flags live in row 8 (index 7) — blank on older sheets
+    const hiddenRow = allData[7] || [];
 
     for (let c = 0; c < tags.length; c++) {
       const tagNo = tags[c];
@@ -170,6 +172,7 @@ export async function readCardSheetData(cardId: string): Promise<CardSheetData> 
         min: minRow[c + colOffset] || '',
         norm: normRow[c + colOffset] || '',
         max: maxRow[c + colOffset] || '',
+        hidden: (hiddenRow[c + colOffset] || '').trim() === '1',
       });
     }
 
@@ -232,6 +235,9 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
   const minRow: string[] = ['Min', ...Array(META_COLS - 1).fill('')];
   const normRow: string[] = ['Norm', ...Array(META_COLS - 1).fill('')];
   const maxRow: string[] = ['Max', ...Array(META_COLS - 1).fill('')];
+  // Hidden markers: '1' under a tag column means that container is hidden.
+  // Occupies the row between Max and the User header (blank on older sheets).
+  const hiddenRow: string[] = ['Hidden', ...Array(META_COLS - 1).fill('')];
 
   for (const eq of equipmentOrder) {
     const tags = equipmentGroups.get(eq)!;
@@ -244,10 +250,10 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
       minRow.push(tag[4]);
       normRow.push(tag[5]);
       maxRow.push(tag[6]);
+      hiddenRow.push(tag[7] === '1' ? '1' : '');
     }
   }
 
-  const blankRow: string[] = [];
   const totalTags = rows.length;
   // 'Filter' records which A/B checkboxes were checked for each submission
   const userHeaderRow: string[] = [...META_HEADERS];
@@ -256,7 +262,7 @@ function buildMatrixRows(rows: string[][], submissionRows: string[][]): string[]
 
   return [
     headerRow, tagNoRow, unitRow, descRow, minRow, normRow, maxRow,
-    blankRow, userHeaderRow, ...submissionRows,
+    hiddenRow, userHeaderRow, ...submissionRows,
   ];
 }
 
@@ -272,12 +278,19 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   // Read existing submissions and remap their values by Tag No. so they stay
   // aligned when the tag set changes (e.g. combined A/B tags split apart).
   let submissionRows: string[][] = [];
+  // Existing hidden flags — preserved when the incoming rows don't carry them
+  const oldHiddenByTag = new Map<string, boolean>();
   try {
     const allData = await getCardTabData(cardId);
     const oldColOffset = detectColOffset(allData);
     const oldTagRow = allData[1] || [];
     const oldTags: string[] = [];
     for (let c = oldColOffset; c < oldTagRow.length; c++) oldTags.push(oldTagRow[c] || '');
+
+    const oldHiddenRow = allData[7] || [];
+    for (let c = 0; c < oldTags.length; c++) {
+      if (oldTags[c]) oldHiddenByTag.set(oldTags[c], (oldHiddenRow[c + oldColOffset] || '').trim() === '1');
+    }
 
     const userHeaderIdx = allData.findIndex((r) => r[0] === 'User');
     if (userHeaderIdx >= 0) {
@@ -303,7 +316,13 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
     /* no existing data */
   }
 
-  const allRows = buildMatrixRows(rows, submissionRows);
+  // Rows from Save Ranges carry the hidden flag at index 7; rows rewritten
+  // during a submission don't — fill those from the sheet's existing flags.
+  const rowsWithHidden = rows.map((r) =>
+    r.length > 7 ? r : [...r, oldHiddenByTag.get(String(r[1])) ? '1' : ''],
+  );
+
+  const allRows = buildMatrixRows(rowsWithHidden, submissionRows);
 
   await withRetry(() =>
     sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:ZZ` }),

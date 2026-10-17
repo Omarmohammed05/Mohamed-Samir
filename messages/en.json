@@ -43,9 +43,7 @@
     "signingIn": "Signing in…",
     "errorInvalid": "Invalid email or password",
     "errorRateLimited": "Too many attempts. Try again in a minute.",
-    "errorGeneric": "Something went wrong. Please try again.",
-    "hintAdmin": "Demo: admin@team.com / admin123",
-    "hintUser": "Demo: omar@team.com / user123"
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "entries": {
     "title": "My Entries",
@@ -209,7 +207,24 @@
     "outOfRange": "Value is outside the operating range",
     "rangesSaved": "Ranges saved successfully",
     "rangesSaveError": "Failed to save ranges",
-    "engineerNoCreate": "Engineers cannot create entries. Use the Pending Review page to review and approve entries."
+    "engineerNoCreate": "Engineers cannot create entries. Use the Pending Review page to review and approve entries.",
+    "editModeOff": "Edit mode",
+    "editModeOn": "Editing",
+    "editContainer": "Edit container",
+    "addContainer": "Add container",
+    "containerAdded": "Container added. Press Save Ranges to persist.",
+    "undoChanges": "Undo changes",
+    "hideContainer": "Hide",
+    "unhideContainer": "Unhide",
+    "containerHidden": "Container hidden. Press Save Ranges to persist.",
+    "containerShown": "Container unhidden. Press Save Ranges to persist.",
+    "hiddenBadge": "Hidden",
+    "deleteContainer": "Delete",
+    "containerDeleted": "Container removed. Press Save Ranges to persist.",
+    "containerUpdated": "Container updated. Press Save Ranges to persist.",
+    "group": "Group",
+    "groupPlaceholder": "Leave empty for a shared row",
+    "cancel": "Cancel"
   },
   "status": {
     "operator": "Operator",
