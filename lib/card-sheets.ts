@@ -312,8 +312,13 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   let submissionRows: string[][] = [];
   // Existing hidden flags — preserved when the incoming rows don't carry them
   const oldHiddenByTag = new Map<string, boolean>();
+  // Previous extent of the written area — used to pad the atomic update below
+  let oldRows = 0;
+  let oldCols = 0;
   try {
     const allData = await getCardTabData(cardId);
+    oldRows = allData.length;
+    for (const r of allData) oldCols = Math.max(oldCols, r.length);
     const oldColOffset = detectColOffset(allData);
     const oldTagRow = allData[1] || [];
     const oldTags: string[] = [];
@@ -361,7 +366,10 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
   // rewrite, which makes containers reappear under a "Custom" tab in the app.
   try {
     const meta = await withRetry(() =>
-      sheets.spreadsheets.get({ spreadsheetId: sheetId }),
+      sheets.spreadsheets.get({
+        spreadsheetId: sheetId,
+        fields: 'sheets(properties.title,merges)',
+      }),
     );
     const merges =
       meta.data.sheets?.find((s) => s.properties?.title === cardId)?.merges || [];
@@ -379,15 +387,19 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
     /* best-effort — the rewrite below still works without it */
   }
 
-  await withRetry(() =>
-    sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:ZZ` }),
-  );
+  // Single atomic update — no clear-then-write gap. The old clear+update pair
+  // left an empty window mid-save during which page loads read an empty sheet
+  // and fell back to the default layout, making saved containers vanish.
+  // Padding to the previous extent blanks stale cells within the same write.
+  const width = allRows.reduce((w, r) => Math.max(w, r.length), oldCols);
+  const padded = allRows.map((r) => [...r, ...Array(Math.max(0, width - r.length)).fill('')]);
+  while (padded.length < oldRows) padded.push(Array(width).fill(''));
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: `${cardId}!A1`,
       valueInputOption: 'RAW',
-      requestBody: { values: allRows },
+      requestBody: { values: padded },
     }),
   );
 }

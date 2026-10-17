@@ -136,10 +136,16 @@ export function CardTabs({
     setSavedTabs(data);
   }
 
-  /** Applies a layout change locally and persists it to the sheet immediately */
-  function applyAndPersist(next: EquipmentTab[]) {
+  /** Applies a layout change locally and persists it to the sheet immediately.
+   * The success toast waits for the sheet write so "saved" means saved — the
+   * write takes a few seconds, and navigating back before it lands shows the
+   * container as gone. */
+  function applyAndPersist(next: EquipmentTab[], successMessage: string) {
     setTabData(next);
-    return persistLayout(next).catch(() => toast.error(t('rangesSaveError')));
+    const toastId = toast.loading(t('saving'));
+    persistLayout(next)
+      .then(() => toast.success(successMessage, { id: toastId }))
+      .catch(() => toast.error(t('rangesSaveError'), { id: toastId }));
   }
 
   function handleToggleHidden(tabIndex: number, rowIndex: number) {
@@ -149,8 +155,7 @@ export function CardTabs({
         ? { ...tab, rows: tab.rows.map((row, j) => (j === rowIndex ? { ...row, hidden: !row.hidden } : row)) }
         : tab,
     );
-    void applyAndPersist(next);
-    toast.success(wasHidden ? t('containerShown') : t('containerHidden'));
+    applyAndPersist(next, wasHidden ? t('containerShown') : t('containerHidden'));
   }
 
   function handleDeleteRow(tabIndex: number, rowIndex: number) {
@@ -159,8 +164,7 @@ export function CardTabs({
         ? { ...tab, rows: tab.rows.filter((_, j) => j !== rowIndex) }
         : tab,
     );
-    void applyAndPersist(next);
-    toast.success(t('containerDeleted'));
+    applyAndPersist(next, t('containerDeleted'));
   }
 
   function handleAddContainer(values: ContainerEditValues) {
@@ -169,8 +173,7 @@ export function CardTabs({
         ? { ...tab, rows: [...tab.rows, { ...values, value: '' }] }
         : tab,
     );
-    void applyAndPersist(next);
-    toast.success(t('containerAdded'));
+    applyAndPersist(next, t('containerAdded'));
   }
 
   function handleUndoChanges() {
@@ -195,8 +198,7 @@ export function CardTabs({
         ? { ...tab, rows: tab.rows.map((row, j) => (j === rowIndex ? { ...row, ...values } : row)) }
         : tab,
     );
-    void applyAndPersist(next);
-    toast.success(t('containerUpdated'));
+    applyAndPersist(next, t('containerUpdated'));
   }
 
   async function handleSaveValues() {
