@@ -76,4 +76,44 @@ export const CARD_DATA: Record<string, EquipmentTab[]> = {
       ],
     },
   ],
+  F02: [
+    {
+      id: 'co2-air-feed',
+      label: 'CO2 & AIR Feed',
+      rows: [
+        { tagNo: 'Plant Load', unit: '%', description: 'Plant Load', min: '65', norm: '112', max: '115' },
+        { tagNo: 'FFIC 1101403', unit: 'mol/mol', description: 'N/C Feed Ratio', min: '1.8', norm: '2', max: '3' },
+        { tagNo: 'FI 122403', unit: 'Nm3/h', description: 'Co2 flow to syn.', min: '20000', norm: '35000', max: '' },
+        { tagNo: 'PI 122203', unit: 'barg', description: 'CO2 Press.', min: '120', norm: '140', max: '150' },
+        { tagNo: 'TI 122017', unit: 'ºC', description: 'CO2 temp.', min: '100', norm: '116', max: '120' },
+        { tagNo: 'TDY 120030', unit: 'ºC', description: 'Δ T at H.R.R.', min: '', norm: '', max: '' },
+        { tagNo: 'FI 120402', unit: 'Nm3/h', description: 'Passiv. air flow', min: '750', norm: '841.3', max: '1400' },
+        { tagNo: 'AI 120701B', unit: 'PPM', description: 'Excess O2% analyzer', min: '0', norm: '0', max: '100' },
+        { tagNo: 'AY 120711', unit: '%', description: 'Excess O2% calc.', min: '0.25', norm: '0.27', max: '0.4' },
+      ],
+    },
+    {
+      id: '122r001-reactor',
+      label: '122R001 Reactor',
+      rows: [
+        { tagNo: 'FY 4125404', unit: '', description: 'Co2 flow to MP Stripper', min: '', norm: '', max: '' },
+        { tagNo: 'LI 122504', unit: '%', description: 'Reactor level', min: '20', norm: '50', max: '80' },
+        { tagNo: 'AI 122701', unit: 'mol/mol', description: 'N/C Ratio', min: '3', norm: '2.98', max: '3.3' },
+        { tagNo: 'TI 122005', unit: 'ºC', description: 'Reactor top temp.', min: '170', norm: '181', max: '190' },
+        { tagNo: 'TI 122008', unit: 'ºC', description: 'Reactor bottom temp.', min: '170', norm: '181', max: '190' },
+        { tagNo: 'TI 122014', unit: 'ºC', description: 'US temp.', min: '170', norm: '180', max: '190' },
+        { tagNo: 'HV 122605', unit: '%', description: 'US to Stripper', min: '25', norm: '50', max: '70' },
+        { tagNo: 'HV 4125602', unit: '%', description: 'US to MP R.C', min: '', norm: '', max: '' },
+        { tagNo: 'HV 4125601', unit: '%', description: 'Gases to MP pre-evap.', min: '0', norm: '', max: '100' },
+      ],
+    },
+    {
+      id: 'lds',
+      label: 'LDS',
+      rows: [
+        { tagNo: 'PI 122210', unit: 'barg', description: 'Passiv. Air Press.', min: '0.15', norm: '0.2', max: '1' },
+        { tagNo: 'PV 122210', unit: '%', description: 'Passiv. air valve', min: '20', norm: '29', max: '50' },
+      ],
+    },
+  ],
 };
