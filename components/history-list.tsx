@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { StatusBadge } from './status-badge';
 import { formatTimestamp, formatDisplayLong, toArabicDigits } from '@/lib/date';
+import { formatDuration } from '@/lib/card-config';
 import type { CardEntry } from '@/lib/entry-store';
 import { CARD_TABS } from '@/config/cards';
+import type { UserRole } from '@/config/mock-users';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
-export function HistoryList() {
+export function HistoryList({ role }: { role: UserRole }) {
   const t = useTranslations();
   const locale = useLocale() as 'en' | 'ar';
   const [entries, setEntries] = useState<CardEntry[]>([]);
@@ -112,6 +114,9 @@ export function HistoryList() {
                 )}
                 {entry.engineer_name && (
                   <span>{t('history.engineer')}: <span className="font-medium text-foreground">{entry.engineer_name}</span></span>
+                )}
+                {role === 'admin' && entry.duration_seconds != null && (
+                  <span>{t('history.duration')}: <span className="font-medium text-foreground">{formatDuration(entry.duration_seconds)}</span></span>
                 )}
               </div>
             </div>

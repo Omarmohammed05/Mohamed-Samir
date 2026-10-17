@@ -21,7 +21,7 @@ export default async function HistoryPage({
       <Header session={session} />
       <main className="mx-auto max-w-3xl px-4 py-6 flex flex-col gap-6 min-w-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('history.title')}</h1>
-        <HistoryList />
+        <HistoryList role={session.role as 'operator' | 'supervisor' | 'engineer' | 'admin'} />
       </main>
     </div>
   );
