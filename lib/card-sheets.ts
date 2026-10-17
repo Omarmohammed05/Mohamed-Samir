@@ -127,6 +127,56 @@ export type CardSheetData = {
 };
 
 /**
+ * Reads the full matrix layout from a card tab and returns it as equipment
+ * tabs (label + rows). Read-only — never writes to the sheet. Used by the
+ * Sync button to receive the latest data from the Sheets tab.
+ */
+export async function readCardSheetLayout(cardId: string): Promise<
+  { label: string; rows: { tagNo: string; unit: string; description: string; min: string; norm: string; max: string; hidden: boolean }[] }[]
+> {
+  try {
+    const allData = await getCardTabData(cardId);
+    if (allData.length < 7) return [];
+
+    const colOffset = detectColOffset(allData);
+    const headerRow = allData[0] || [];
+    const tagRow = allData[1] || [];
+    const unitRow = allData[2] || [];
+    const descRow = allData[3] || [];
+    const minRow = allData[4] || [];
+    const normRow = allData[5] || [];
+    const maxRow = allData[6] || [];
+    const hiddenRow = allData[7] || [];
+
+    const tabs: { label: string; rows: { tagNo: string; unit: string; description: string; min: string; norm: string; max: string; hidden: boolean }[] }[] = [];
+    let current: (typeof tabs)[number] | null = null;
+
+    for (let c = colOffset; c < tagRow.length; c++) {
+      const tagNo = (tagRow[c] || '').trim();
+      if (!tagNo) continue;
+      const label = (headerRow[c] || '').trim();
+      if (label) {
+        current = { label, rows: [] };
+        tabs.push(current);
+      }
+      if (!current) continue; // tag column before any equipment header
+      current.rows.push({
+        tagNo,
+        unit: unitRow[c] || '',
+        description: descRow[c] || '',
+        min: minRow[c] || '',
+        norm: normRow[c] || '',
+        max: maxRow[c] || '',
+        hidden: (hiddenRow[c] || '').trim() === '1',
+      });
+    }
+    return tabs;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Reads the matrix-layout sheet and returns config + latest submission values.
  * Matrix layout:
  *   Row 1: Equipment header (names in first column of each group)

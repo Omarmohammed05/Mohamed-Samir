@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { saveCardSubmission, saveCardConfig } from '@/lib/card-sheets';
+import { saveCardSubmission, saveCardConfig, readCardSheetLayout } from '@/lib/card-sheets';
+
+/** GET — read-only sync: returns the card tab's latest layout from the Sheet */
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const cardId = req.nextUrl.searchParams.get('cardId');
+  if (!cardId) {
+    return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
+  }
+
+  try {
+    const tabs = await readCardSheetLayout(cardId.toUpperCase());
+    return NextResponse.json({ tabs });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed to read sheet' },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(req: NextRequest) {
   const session = await getSession();

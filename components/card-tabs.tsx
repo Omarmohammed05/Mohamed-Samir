@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2, Plus, Undo2, Eye, EyeOff } from 'lucide-react';
+import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2, Plus, Undo2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EquipmentTab } from '@/config/card-data';
@@ -50,6 +50,7 @@ export function CardTabs({
   const [tabData, setTabData] = useState<EquipmentTab[]>(tabs);
   const [saving, setSaving] = useState(false);
   const [savingRanges, setSavingRanges] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   // A/B filter — sub-labels start unchecked (operator picks which to show)
   const [subFilter, setSubFilter] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -237,6 +238,55 @@ export function CardTabs({
       toast.error((err as Error).message || t('saveError'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Receive-only sync: pull the latest layout/ranges from the Sheets tab.
+  // Never writes to the Sheet — the page is updated only.
+  async function handleSyncFromSheets() {
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/sheets/card-data?cardId=${encodeURIComponent(cardId)}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const syncedTabs = (data.tabs || []) as {
+        label: string;
+        rows: { tagNo: string; unit: string; description: string; min: string; norm: string; max: string; hidden: boolean }[];
+      }[];
+      if (syncedTabs.length === 0) {
+        toast.error(t('syncEmpty'));
+        return;
+      }
+      // Keep in-progress values and A/B group assignments for matching tags
+      const valueByTag = new Map<string, string>();
+      const groupByTag = new Map<string, string | undefined>();
+      for (const tab of tabData) {
+        for (const row of tab.rows) {
+          valueByTag.set(row.tagNo, row.value || '');
+          groupByTag.set(row.tagNo, row.group);
+        }
+      }
+      const merged: EquipmentTab[] = syncedTabs.map((tab) => {
+        const existing = tabData.find((t) => t.label === tab.label);
+        return {
+          id: existing?.id ?? tab.label,
+          label: tab.label,
+          subLabels: existing?.subLabels,
+          rows: tab.rows.map((r) => ({
+            ...r,
+            group: groupByTag.get(r.tagNo),
+            value: valueByTag.get(r.tagNo) ?? '',
+          })),
+        };
+      });
+      setTabData(merged);
+      setSavedTabs(merged);
+      if (activeTab >= merged.length) setActiveTab(0);
+      toast.success(t('syncSuccess'));
+    } catch {
+      toast.error(t('syncError'));
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -521,6 +571,19 @@ export function CardTabs({
 
       {/* Save buttons */}
       <div className="flex justify-center gap-2">
+        <Button variant="outline" onClick={handleSyncFromSheets} disabled={syncing} className="rounded-lg">
+          {syncing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t('saving')}
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4" />
+              {t('sync')}
+            </>
+          )}
+        </Button>
         {isAdmin && (
           <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges || !hasLayoutChanges} className="rounded-lg">
             {savingRanges ? (
