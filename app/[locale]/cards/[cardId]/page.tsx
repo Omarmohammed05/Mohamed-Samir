@@ -1,103 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { setRequestLocale } from 'next-intl/server';
 import { getSession } from '@/lib/auth';
 import { isValidCardId } from '@/config/cards';
-import { CARD_DATA, type EquipmentTab, type CardInputRow } from '@/config/card-data';
-import { readCardSheetData, backfillContainerIds, type CardSheetData, type SheetContainer } from '@/lib/card-sheets';
+import { CARD_DATA } from '@/config/card-data';
+import { readCardSheetData, backfillContainerIds, type CardSheetData } from '@/lib/card-sheets';
+import { mergeCardData, emptySheetData } from '@/lib/card-merge';
 import { Header } from '@/components/header';
-import { Link } from '@/i18n/navigation';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { CardTabs } from '@/components/card-tabs';
-import { AutoSync } from '@/components/auto-sync';
-
-function mergeCardData(
-  defaultTabs: EquipmentTab[],
-  sheetData: CardSheetData,
-): EquipmentTab[] {
-  // When the sheet has no saved layout (brand-new card or Sheets API unavailable),
-  // fall back to the hardcoded defaults.
-  if (sheetData.containers.length === 0) {
-    return defaultTabs.map((tab) => ({
-      ...tab,
-      rows: tab.rows.map((row) => ({ ...row, value: '', hidden: false })),
-    }));
-  }
-
-  // Index sheet containers by tagNo so we can look up saved config and detect
-  // which containers exist in the sheet (the source of truth). Tags may be
-  // duplicated, so each tag keeps a list; a default row matches the first
-  // sheet container not claimed yet.
-  const sheetByTag = new Map<string, SheetContainer[]>();
-  for (const c of sheetData.containers) {
-    const list = sheetByTag.get(c.tagNo) || [];
-    list.push(c);
-    sheetByTag.set(c.tagNo, list);
-  }
-
-  // Track which sheet containers are accounted for (by permanent ID, falling
-  // back to tag when a container has no ID yet)
-  const covered = new Set<string>();
-  const coveredKey = (c: SheetContainer) => c.id || c.tagNo;
-
-  // Start from the default tab structure (preserves ids, labels, subLabels,
-  // tab order, and row order). Replace each row's config with the sheet's
-  // saved values; rows absent from the sheet were deleted and are dropped.
-  const resultTabs: EquipmentTab[] = defaultTabs.map((tab) => ({
-    ...tab,
-    rows: tab.rows
-      .map((row): CardInputRow | null => {
-        const sheet = (sheetByTag.get(row.tagNo) || []).find(
-          (c) => !covered.has(coveredKey(c)),
-        );
-        if (!sheet) return null; // deleted from sheet
-        covered.add(coveredKey(sheet));
-        return {
-          id: sheet.id, // permanent ID — carried through every save
-          tagNo: sheet.tagNo,
-          unit: sheet.unit,
-          description: sheet.description,
-          min: sheet.min,
-          norm: sheet.norm,
-          max: sheet.max,
-          hidden: sheet.hidden,
-          group: row.group, // preserve A/B sub-label from defaults
-          value: '',
-        };
-      })
-      .filter((r): r is CardInputRow => r !== null),
-  }));
-
-  // Add containers that exist in the sheet but not in the defaults (newly added).
-  // Place each in the tab whose label matches the sheet's equipment header;
-  // unknown or blank headers fall back to the last tab instead of creating
-  // a "Custom" tab (the sheet is normalized on the next config save).
-  const tabByLabel = new Map<string, EquipmentTab>();
-  for (const tab of resultTabs) tabByLabel.set(tab.label, tab);
-
-  for (const c of sheetData.containers) {
-    if (covered.has(coveredKey(c))) continue;
-
-    const targetTab =
-      (c.equipment ? tabByLabel.get(c.equipment) : undefined) ??
-      resultTabs[resultTabs.length - 1];
-    if (!targetTab) continue;
-    targetTab.rows.push({
-      id: c.id, // permanent ID — carried through every save
-      tagNo: c.tagNo,
-      unit: c.unit,
-      description: c.description,
-      min: c.min,
-      norm: c.norm,
-      max: c.max,
-      hidden: c.hidden,
-      value: '',
-    });
-  }
-
-  // Drop tabs whose every container was deleted from the sheet
-  return resultTabs.filter((tab) => tab.rows.length > 0);
-}
+import { CardView } from '@/components/card-view';
 
 export default async function CardDetailPage({
   params,
@@ -106,7 +15,6 @@ export default async function CardDetailPage({
 }) {
   const { locale, cardId } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations();
   const session = await getSession();
 
   if (!session) redirect(`/${locale}/login`);
@@ -118,7 +26,7 @@ export default async function CardDetailPage({
 
   const defaultTabs = CARD_DATA[id] || [];
 
-  let sheetData: CardSheetData = { config: new Map(), containers: [], latestValues: new Map() };
+  let sheetData: CardSheetData = emptySheetData();
   try {
     sheetData = await readCardSheetData(id);
     // Additive migration: the first load after this update assigns permanent
@@ -137,23 +45,14 @@ export default async function CardDetailPage({
   return (
     <div className="min-h-screen bg-background">
       <Header session={session} />
-      <AutoSync />
       <main className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-6 min-w-0">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon">
-            <Link href="/cards">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold tracking-tight">{id}</h1>
-        </div>
-        {tabs.length > 0 ? (
-          <CardTabs cardId={id} tabs={tabs} role={session.role as 'operator' | 'supervisor' | 'engineer' | 'admin'} userEmail={session.email} />
-        ) : (
-          <div className="rounded-xl border border-border bg-card p-8 flex flex-col items-center justify-center gap-4 min-h-[300px]">
-            <p className="text-muted-foreground text-center">{t('cards.cardContent')}</p>
-          </div>
-        )}
+        <CardView
+          key={id}
+          cardId={id}
+          tabs={tabs}
+          role={session.role as 'operator' | 'supervisor' | 'engineer' | 'admin'}
+          userEmail={session.email}
+        />
       </main>
     </div>
   );

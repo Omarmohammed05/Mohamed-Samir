@@ -224,7 +224,11 @@
     "containerUpdated": "Container updated and saved.",
     "group": "Group",
     "groupPlaceholder": "Leave empty for a shared row",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "sync": "Sync",
+    "syncing": "Syncing…",
+    "synced": "Data synced",
+    "syncFailed": "Failed to sync data"
   },
   "status": {
     "operator": "Operator",

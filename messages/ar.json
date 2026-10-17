@@ -224,7 +224,11 @@
     "containerUpdated": "تم تحديث الحاوية وحفظها.",
     "group": "المجموعة",
     "groupPlaceholder": "اتركه فارغاً للصف المشترك",
-    "cancel": "إلغاء"
+    "cancel": "إلغاء",
+    "sync": "تحديث",
+    "syncing": "جارٍ التحديث…",
+    "synced": "تم تحديث البيانات",
+    "syncFailed": "فشل تحديث البيانات"
   },
   "status": {
     "operator": "مشغل",
