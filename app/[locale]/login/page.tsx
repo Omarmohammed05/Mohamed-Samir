@@ -38,10 +38,6 @@ export default async function LoginPage({
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <LoginClient />
-        <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-          <p className="font-medium">{t('hintAdmin')}</p>
-          <p className="font-medium">{t('hintUser')}</p>
-        </div>
       </div>
     </div>
   );

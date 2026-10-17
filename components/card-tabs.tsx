@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Save, Loader2, SlidersHorizontal, AlertTriangle } from 'lucide-react';
+import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import type { EquipmentTab } from '@/config/card-data';
 import type { UserRole } from '@/config/mock-users';
+import { ContainerEditDialog, type ContainerEditValues } from '@/components/container-edit-dialog';
 
 function isOutOfRange(value: string, min: string, max: string): boolean {
   if (!value.trim()) return false;
@@ -51,6 +53,10 @@ export function CardTabs({
   const isAdmin = role === 'admin';
   const canCreate = role === 'operator' || role === 'supervisor' || role === 'admin';
 
+  // Admin-only edit mode: rename/describe/delete each container (row).
+  const [editMode, setEditMode] = useState(false);
+  const [editingRow, setEditingRow] = useState<{ tabIndex: number; rowIndex: number } | null>(null);
+
   // Hidden fill-in timer — uses timestamp, not a counter
   const timerStartRef = useRef<number | null>(null);
   useEffect(() => {
@@ -81,10 +87,10 @@ export function CardTabs({
     });
   }
 
-  function handleRangeChange(
+  function handleRowFieldChange(
     tabIndex: number,
     rowIndex: number,
-    field: 'min' | 'norm' | 'max',
+    field: 'min' | 'norm' | 'max' | 'tagNo' | 'description' | 'unit',
     value: string,
   ) {
     setTabData((prev) => {
@@ -97,6 +103,34 @@ export function CardTabs({
       };
       return next;
     });
+  }
+
+  function handleDeleteRow(tabIndex: number, rowIndex: number) {
+    setTabData((prev) => {
+      const next = [...prev];
+      next[tabIndex] = {
+        ...next[tabIndex],
+        rows: next[tabIndex].rows.filter((_, i) => i !== rowIndex),
+      };
+      return next;
+    });
+    toast.success(t('containerDeleted'));
+  }
+
+  function handleDialogSave(values: ContainerEditValues) {
+    if (!editingRow) return;
+    const { tabIndex, rowIndex } = editingRow;
+    setTabData((prev) => {
+      const next = [...prev];
+      next[tabIndex] = {
+        ...next[tabIndex],
+        rows: next[tabIndex].rows.map((row, i) =>
+          i === rowIndex ? { ...row, ...values } : row,
+        ),
+      };
+      return next;
+    });
+    toast.success(t('containerUpdated'));
   }
 
   async function handleSaveValues() {
@@ -193,6 +227,21 @@ export function CardTabs({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Admin edit-mode toggle */}
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button
+            variant={editMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setEditMode((v) => !v)}
+            className="rounded-lg"
+          >
+            <Settings2 className="h-4 w-4" />
+            {editMode ? t('editModeOn') : t('editModeOff')}
+          </Button>
+        </div>
+      )}
+
       {/* Tab navigation — rectangular buttons */}
       <div className="flex gap-2 flex-wrap justify-center">
         {tabData.map((tab, i) => (
@@ -243,21 +292,62 @@ export function CardTabs({
           const stackedTag = tagNumbers.length > 0;
           return (
             <div key={i} className="flex flex-col gap-1.5">
+              {/* Edit-mode actions per container */}
+              {editMode && (
+                <div className="flex justify-end gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 rounded-lg"
+                    onClick={() => setEditingRow({ tabIndex: activeTab, rowIndex: i })}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {t('editContainer')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 px-2 rounded-lg"
+                    onClick={() => handleDeleteRow(activeTab, i)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {t('deleteContainer')}
+                  </Button>
+                </div>
+              )}
               {/* Row 1: Tag No + Description */}
               <div className="flex gap-2">
-                <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs font-medium overflow-hidden">
-                  {stackedTag ? (
-                    <>
-                      <span className="block w-full leading-tight font-semibold">{tagCode}</span>
-                      <span className="block w-full break-words leading-tight">{tagNumbers.join(' ')}</span>
-                    </>
-                  ) : (
-                    <span className="block w-full break-words leading-tight">{row.tagNo}</span>
-                  )}
-                </div>
-                <div className="flex-[2] min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs overflow-hidden">
-                  <span className="block w-full break-words leading-tight">{row.description}</span>
-                </div>
+                {editMode ? (
+                  <Input
+                    value={row.tagNo}
+                    onChange={(e) => handleRowFieldChange(activeTab, i, 'tagNo', e.target.value)}
+                    className="flex-1 min-w-0 h-9 text-center text-xs font-medium rounded-lg"
+                  />
+                ) : (
+                  <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs font-medium overflow-hidden">
+                    {stackedTag ? (
+                      <>
+                        <span className="block w-full leading-tight font-semibold">{tagCode}</span>
+                        <span className="block w-full break-words leading-tight">{tagNumbers.join(' ')}</span>
+                      </>
+                    ) : (
+                      <span className="block w-full break-words leading-tight">{row.tagNo}</span>
+                    )}
+                  </div>
+                )}
+                {editMode ? (
+                  <Input
+                    value={row.description}
+                    onChange={(e) => handleRowFieldChange(activeTab, i, 'description', e.target.value)}
+                    className="flex-[2] min-w-0 h-9 text-center text-xs rounded-lg"
+                  />
+                ) : (
+                  <div className="flex-[2] min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-xs overflow-hidden">
+                    <span className="block w-full break-words leading-tight">{row.description}</span>
+                  </div>
+                )}
               </div>
               {/* Row 2: Process Value + Unit + Min/Norm/Max */}
               <div className="flex gap-2 items-stretch">
@@ -272,9 +362,17 @@ export function CardTabs({
                       : 'bg-card border-border focus:border-primary'
                   } ${!canCreate ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
-                <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
-                  {row.unit}
-                </div>
+                {editMode ? (
+                  <Input
+                    value={row.unit}
+                    onChange={(e) => handleRowFieldChange(activeTab, i, 'unit', e.target.value)}
+                    className="flex-1 min-w-0 h-9 text-center text-sm rounded-lg"
+                  />
+                ) : (
+                  <div className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-center text-sm flex items-center justify-center">
+                    {row.unit}
+                  </div>
+                )}
                 {/* Min/Norm/Max stacked */}
                 <div className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-card border border-border flex flex-col items-center justify-center gap-0.5">
                   {isAdmin ? (
@@ -282,19 +380,19 @@ export function CardTabs({
                       <input
                         type="text"
                         value={row.min}
-                        onChange={(e) => handleRangeChange(activeTab, i, 'min', e.target.value)}
+                        onChange={(e) => handleRowFieldChange(activeTab, i, 'min', e.target.value)}
                         className="w-full max-w-[60px] text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
                       />
                       <input
                         type="text"
                         value={row.norm}
-                        onChange={(e) => handleRangeChange(activeTab, i, 'norm', e.target.value)}
+                        onChange={(e) => handleRowFieldChange(activeTab, i, 'norm', e.target.value)}
                         className="w-full max-w-[60px] text-center text-xs bg-transparent border-b border-border focus:outline-none pb-0.5"
                       />
                       <input
                         type="text"
                         value={row.max}
-                        onChange={(e) => handleRangeChange(activeTab, i, 'max', e.target.value)}
+                        onChange={(e) => handleRowFieldChange(activeTab, i, 'max', e.target.value)}
                         className="w-full max-w-[60px] text-center text-xs bg-transparent focus:outline-none"
                       />
                     </>
@@ -361,6 +459,13 @@ export function CardTabs({
           <p className="text-sm text-muted-foreground text-center py-2">{t('engineerNoCreate')}</p>
         )}
       </div>
+
+      <ContainerEditDialog
+        open={!!editingRow}
+        onOpenChange={(open) => !open && setEditingRow(null)}
+        row={editingRow ? tabData[editingRow.tabIndex]?.rows[editingRow.rowIndex] ?? null : null}
+        onSave={handleDialogSave}
+      />
     </div>
   );
 }
