@@ -5,28 +5,22 @@
  */
 import { promises as fs } from 'fs';
 import path from 'path';
-import { CARD_TABS } from '@/config/cards';
+import {
+  getDefaultCardConfig,
+  type CardConfigMap,
+  type CardTimeRange,
+} from './duration';
 
-export type CardTimeRange = {
-  min_seconds: number;
-  max_seconds: number;
-};
-
-export type CardConfigMap = Record<string, CardTimeRange>;
+export type { CardTimeRange, CardConfigMap } from './duration';
 
 const CONFIG_PATH = path.join(process.cwd(), 'data', 'card-time-ranges.json');
-
-const DEFAULT_RANGES: CardConfigMap = {};
-for (const tab of CARD_TABS) {
-  DEFAULT_RANGES[tab] = { min_seconds: 0, max_seconds: 0 };
-}
 
 export async function getCardConfig(): Promise<CardConfigMap> {
   try {
     const raw = await fs.readFile(CONFIG_PATH, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<CardConfigMap>;
     // Merge with defaults to ensure all cards are present
-    const result: CardConfigMap = { ...DEFAULT_RANGES };
+    const result = getDefaultCardConfig();
     for (const key of Object.keys(parsed)) {
       if (parsed[key]) {
         result[key] = {
@@ -37,7 +31,7 @@ export async function getCardConfig(): Promise<CardConfigMap> {
     }
     return result;
   } catch {
-    return { ...DEFAULT_RANGES };
+    return getDefaultCardConfig();
   }
 }
 
@@ -51,18 +45,10 @@ export async function getCardTimeRange(cardId: string): Promise<CardTimeRange | 
   return config[cardId] || null;
 }
 
-export { formatDuration, parseDuration } from './duration';
-
-/**
- * Determine the color category for a duration value.
- * Returns 'high', 'low', or null (within range).
- */
-export function getDurationColor(
-  durationSeconds: number,
-  range: CardTimeRange,
-): 'high' | 'low' | null {
-  // Only color if max_seconds is set (meaning admin configured ranges)
-  if (range.max_seconds > 0 && durationSeconds > range.max_seconds) return 'high';
-  if (range.min_seconds > 0 && durationSeconds < range.min_seconds) return 'low';
-  return null;
-}
+// Re-export the pure helpers for server-side callers; client components should
+// import directly from '@/lib/duration' to avoid pulling in `fs`.
+export {
+  formatDuration,
+  parseDuration,
+  getDurationColor,
+} from './duration';

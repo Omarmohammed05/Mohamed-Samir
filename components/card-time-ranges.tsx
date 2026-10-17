@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CARD_TABS } from '@/config/cards';
-import type { CardTimeRange } from '@/lib/card-config';
+import type { CardTimeRange } from '@/lib/duration';
 
 export function CardTimeRanges() {
   const t = useTranslations();

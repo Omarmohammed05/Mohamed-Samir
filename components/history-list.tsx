@@ -8,6 +8,7 @@ import { formatDuration } from '@/lib/duration';
 import type { CardEntry } from '@/lib/entry-store';
 import type { EquipmentTab } from '@/config/card-data';
 import { CARD_TABS } from '@/config/cards';
+import type { UserRole } from '@/config/mock-users';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ function isOutOfRange(value: string, min: string, max: string): boolean {
   return false;
 }
 
-export function HistoryList() {
+export function HistoryList({ role }: { role: UserRole }) {
   const t = useTranslations();
   const locale = useLocale() as 'en' | 'ar';
   const [entries, setEntries] = useState<CardEntry[]>([]);
@@ -150,7 +151,7 @@ export function HistoryList() {
                 {entry.engineer_name && (
                   <span>{t('history.engineer')}: <span className="font-medium text-foreground">{entry.engineer_name}</span></span>
                 )}
-                {entry.duration_seconds != null && (
+                {role === 'admin' && entry.duration_seconds != null && (
                   <span>{t('history.duration')}: <span className="font-medium text-foreground">{formatDuration(entry.duration_seconds)}</span></span>
                 )}
               </div>
