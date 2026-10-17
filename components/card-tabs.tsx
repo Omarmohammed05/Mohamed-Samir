@@ -3,12 +3,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2 } from 'lucide-react';
+import { Save, Loader2, SlidersHorizontal, AlertTriangle, Pencil, Trash2, Settings2, Plus, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EquipmentTab } from '@/config/card-data';
 import type { UserRole } from '@/config/mock-users';
 import { ContainerEditDialog, type ContainerEditValues } from '@/components/container-edit-dialog';
+
+/** Layout fields that make up a persisted container config (values excluded) */
+function layoutOf(tabs: EquipmentTab[]): string {
+  return JSON.stringify(
+    tabs.map((tab) => tab.rows.map((r) => [r.tagNo, r.description, r.unit, r.min, r.norm, r.max])),
+  );
+}
 
 function isOutOfRange(value: string, min: string, max: string): boolean {
   if (!value.trim()) return false;
@@ -53,9 +60,13 @@ export function CardTabs({
   const isAdmin = role === 'admin';
   const canCreate = role === 'operator' || role === 'supervisor' || role === 'admin';
 
-  // Admin-only edit mode: rename/describe/delete each container (row).
+  // Admin-only edit mode: rename/describe/delete/add each container (row).
   const [editMode, setEditMode] = useState(false);
   const [editingRow, setEditingRow] = useState<{ tabIndex: number; rowIndex: number } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  // Last persisted layout — Undo restores this, Save Ranges refreshes it
+  const [savedTabs, setSavedTabs] = useState<EquipmentTab[]>(tabs);
+  const hasLayoutChanges = layoutOf(tabData) !== layoutOf(savedTabs);
 
   // Hidden fill-in timer — uses timestamp, not a counter
   const timerStartRef = useRef<number | null>(null);
@@ -115,6 +126,31 @@ export function CardTabs({
       return next;
     });
     toast.success(t('containerDeleted'));
+  }
+
+  function handleAddContainer(values: ContainerEditValues) {
+    setTabData((prev) =>
+      prev.map((tab, i) =>
+        i === activeTab
+          ? { ...tab, rows: [...tab.rows, { ...values, value: '' }] }
+          : tab,
+      ),
+    );
+    toast.success(t('containerAdded'));
+  }
+
+  function handleUndoChanges() {
+    // Restore the last saved layout, keeping current process values by tag
+    const valuesByTag = new Map<string, string>();
+    for (const tab of tabData) {
+      for (const row of tab.rows) valuesByTag.set(row.tagNo, row.value || '');
+    }
+    setTabData(
+      savedTabs.map((tab) => ({
+        ...tab,
+        rows: tab.rows.map((row) => ({ ...row, value: valuesByTag.get(row.tagNo) ?? '' })),
+      })),
+    );
   }
 
   function handleDialogSave(values: ContainerEditValues) {
@@ -201,6 +237,7 @@ export function CardTabs({
         body: JSON.stringify({ type: 'config', cardId, rows: allRows }),
       });
       if (!res.ok) throw new Error();
+      setSavedTabs(tabData);
       toast.success(t('rangesSaved'));
     } catch {
       toast.error(t('rangesSaveError'));
@@ -227,9 +264,9 @@ export function CardTabs({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Admin edit-mode toggle */}
+      {/* Admin edit-mode toolbar: toggle + add + undo */}
       {isAdmin && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             variant={editMode ? 'default' : 'outline'}
             size="sm"
@@ -239,6 +276,29 @@ export function CardTabs({
             <Settings2 className="h-4 w-4" />
             {editMode ? t('editModeOn') : t('editModeOff')}
           </Button>
+          {editMode && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAddOpen(true)}
+                className="rounded-lg"
+              >
+                <Plus className="h-4 w-4" />
+                {t('addContainer')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUndoChanges}
+                disabled={!hasLayoutChanges}
+                className="rounded-lg"
+              >
+                <Undo2 className="h-4 w-4" />
+                {t('undoChanges')}
+              </Button>
+            </>
+          )}
         </div>
       )}
 
@@ -426,7 +486,7 @@ export function CardTabs({
       {/* Save buttons */}
       <div className="flex justify-center gap-2">
         {isAdmin && (
-          <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges} className="rounded-lg">
+          <Button variant="outline" onClick={handleSaveRanges} disabled={savingRanges || !hasLayoutChanges} className="rounded-lg">
             {savingRanges ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -465,6 +525,13 @@ export function CardTabs({
         onOpenChange={(open) => !open && setEditingRow(null)}
         row={editingRow ? tabData[editingRow.tabIndex]?.rows[editingRow.rowIndex] ?? null : null}
         onSave={handleDialogSave}
+      />
+      <ContainerEditDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        row={null}
+        mode="add"
+        onSave={handleAddContainer}
       />
     </div>
   );

@@ -29,11 +29,14 @@ export function ContainerEditDialog({
   onOpenChange,
   row,
   onSave,
+  mode = 'edit',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   row: CardInputRow | null;
   onSave: (values: ContainerEditValues) => void;
+  /** 'edit' patches the given row; 'add' starts from empty fields */
+  mode?: 'edit' | 'add';
 }) {
   const t = useTranslations('cards');
   const [tagNo, setTagNo] = useState('');
@@ -45,6 +48,7 @@ export function ContainerEditDialog({
   const [group, setGroup] = useState('');
 
   useEffect(() => {
+    if (!open) return;
     if (row) {
       setTagNo(row.tagNo);
       setDescription(row.description);
@@ -53,8 +57,16 @@ export function ContainerEditDialog({
       setNorm(row.norm);
       setMax(row.max);
       setGroup(row.group || '');
+    } else {
+      setTagNo('');
+      setDescription('');
+      setUnit('');
+      setMin('');
+      setNorm('');
+      setMax('');
+      setGroup('');
     }
-  }, [row]);
+  }, [open, row]);
 
   function handleSave() {
     onSave({
@@ -73,7 +85,7 @@ export function ContainerEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('editContainer')}</DialogTitle>
+          <DialogTitle>{mode === 'add' ? t('addContainer') : t('editContainer')}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
