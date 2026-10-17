@@ -57,24 +57,19 @@ function mergeCardData(
   }));
 
   // Add containers that exist in the sheet but not in the defaults (newly added).
-  // Place each in the tab whose label matches the sheet's equipment header.
+  // Place each in the tab whose label matches the sheet's equipment header;
+  // unknown or blank headers fall back to the last tab instead of creating
+  // a "Custom" tab (the sheet is normalized on the next config save).
   const tabByLabel = new Map<string, EquipmentTab>();
   for (const tab of resultTabs) tabByLabel.set(tab.label, tab);
 
   for (const c of sheetData.containers) {
     if (coveredTags.has(c.tagNo)) continue;
 
-    const label = c.equipment || 'Custom';
-    let targetTab = tabByLabel.get(label);
-    if (!targetTab) {
-      targetTab = {
-        id: `custom-${resultTabs.length}`,
-        label,
-        rows: [],
-      };
-      resultTabs.push(targetTab);
-      tabByLabel.set(label, targetTab);
-    }
+    const targetTab =
+      (c.equipment ? tabByLabel.get(c.equipment) : undefined) ??
+      resultTabs[resultTabs.length - 1];
+    if (!targetTab) continue;
     targetTab.rows.push({
       tagNo: c.tagNo,
       unit: c.unit,

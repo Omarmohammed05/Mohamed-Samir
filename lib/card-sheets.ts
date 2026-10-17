@@ -356,6 +356,29 @@ export async function saveCardConfig(cardId: string, rows: string[][]): Promise<
 
   const allRows = buildMatrixRows(rowsWithHidden, submissionRows);
 
+  // Remove leftover merged cells from the original hand-made sheet — merges in
+  // the header row silently swallow the equipment group labels written by the
+  // rewrite, which makes containers reappear under a "Custom" tab in the app.
+  try {
+    const meta = await withRetry(() =>
+      sheets.spreadsheets.get({ spreadsheetId: sheetId }),
+    );
+    const merges =
+      meta.data.sheets?.find((s) => s.properties?.title === cardId)?.merges || [];
+    if (merges.length > 0) {
+      await withRetry(() =>
+        sheets.spreadsheets.batchUpdate({
+          spreadsheetId: sheetId,
+          requestBody: {
+            requests: merges.map((range) => ({ unmergeCells: { range } })),
+          },
+        }),
+      );
+    }
+  } catch {
+    /* best-effort — the rewrite below still works without it */
+  }
+
   await withRetry(() =>
     sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${cardId}!A:ZZ` }),
   );
