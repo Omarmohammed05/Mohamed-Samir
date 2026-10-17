@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { StatusBadge } from './status-badge';
 import { formatTimestamp, formatDisplayLong, toArabicDigits } from '@/lib/date';
-import { formatDuration } from '@/lib/card-config';
+import { formatDuration } from '@/lib/card-config-utils';
 import type { CardEntry } from '@/lib/entry-store';
 import { CARD_TABS } from '@/config/cards';
 import type { UserRole } from '@/config/mock-users';
