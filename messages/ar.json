@@ -226,6 +226,8 @@
     "operator": "المشغل",
     "supervisor": "المشرف",
     "engineer": "المهندس",
+    "open": "التفاصيل",
+    "detailsTitle": "تفاصيل السجل",
     "duration": "المدة"
   },
   "review": {

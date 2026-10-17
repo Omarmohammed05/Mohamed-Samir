@@ -1,7 +1,6 @@
 /**
- * Pure (client-safe) helpers and types for card time-range config.
- * Keep this module free of Node.js APIs so it can be imported from client
- * components without dragging `fs`/`path` into the browser bundle.
+ * Pure duration helpers and card time-range types — safe to import from
+ * client components. Keep this module free of Node.js APIs.
  */
 import { CARD_TABS } from '@/config/cards';
 
@@ -12,13 +11,12 @@ export type CardTimeRange = {
 
 export type CardConfigMap = Record<string, CardTimeRange>;
 
-const DEFAULT_RANGES: CardConfigMap = {};
-for (const tab of CARD_TABS) {
-  DEFAULT_RANGES[tab] = { min_seconds: 0, max_seconds: 0 };
-}
-
 export function getDefaultCardConfig(): CardConfigMap {
-  return { ...DEFAULT_RANGES };
+  const ranges: CardConfigMap = {};
+  for (const tab of CARD_TABS) {
+    ranges[tab] = { min_seconds: 0, max_seconds: 0 };
+  }
+  return ranges;
 }
 
 /**

@@ -226,6 +226,8 @@
     "operator": "Operator",
     "supervisor": "Supervisor",
     "engineer": "Engineer",
+    "open": "Details",
+    "detailsTitle": "Entry Details",
     "duration": "Duration"
   },
   "review": {

@@ -51,16 +51,14 @@ export function CardTabs({
   const isAdmin = role === 'admin';
   const canCreate = role === 'operator' || role === 'supervisor' || role === 'admin';
 
-  // Hidden timer for operators — uses timestamp, not a counter
+  // Hidden fill-in timer — uses timestamp, not a counter
   const timerStartRef = useRef<number | null>(null);
   useEffect(() => {
-    if (role === 'operator') {
-      timerStartRef.current = Date.now();
-    }
+    timerStartRef.current = Date.now();
     return () => {
       timerStartRef.current = null;
     };
-  }, [role, cardId]);
+  }, [cardId]);
 
   function toggleSub(sub: string) {
     setSubFilter((prev) => ({ ...prev, [sub]: !prev[sub] }));
@@ -113,10 +111,10 @@ export function CardTabs({
           ]);
         }
       }
-      // Calculate duration for operators (timestamp-based, no drift)
+      // Fill-in duration (timestamp-based, no drift)
       let durationSeconds: number | null = null;
-      if (role === 'operator' && timerStartRef.current) {
-        durationSeconds = Math.round((Date.now() - timerStartRef.current) / 1000);
+      if (timerStartRef.current) {
+        durationSeconds = Math.max(1, Math.round((Date.now() - timerStartRef.current) / 1000));
       }
 
       // Record which A/B filter checkboxes were checked at save time
@@ -145,10 +143,8 @@ export function CardTabs({
           rows: tab.rows.map((row) => ({ ...row, value: '' })),
         })),
       );
-      // Reset timer for operator after save
-      if (role === 'operator') {
-        timerStartRef.current = Date.now();
-      }
+      // Reset the fill-in timer after save
+      timerStartRef.current = Date.now();
     } catch (err) {
       toast.error((err as Error).message || t('saveError'));
     } finally {

@@ -9,9 +9,9 @@ import {
   getDefaultCardConfig,
   type CardConfigMap,
   type CardTimeRange,
-} from './card-config-utils';
+} from './duration';
 
-export type { CardTimeRange, CardConfigMap } from './card-config-utils';
+export type { CardTimeRange, CardConfigMap } from './duration';
 
 const CONFIG_PATH = path.join(process.cwd(), 'data', 'card-time-ranges.json');
 
@@ -46,9 +46,9 @@ export async function getCardTimeRange(cardId: string): Promise<CardTimeRange | 
 }
 
 // Re-export the pure helpers for server-side callers; client components should
-// import directly from '@/lib/card-config-utils' to avoid pulling in `fs`.
+// import directly from '@/lib/duration' to avoid pulling in `fs`.
 export {
   formatDuration,
   parseDuration,
   getDurationColor,
-} from './card-config-utils';
+} from './duration';
